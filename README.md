@@ -69,6 +69,10 @@ HTTPS で配信されるため、位置情報やスマホのコンパスもそ�
 2. 既定ブランチなら、Release `android-latest` の `seiza.apk` を差し替え（動作確認用・テスト広告）
    - リリース画面: `https://github.com/techgymjp/seiza/releases/tag/android-latest`（QR コード: `docs/apk-qr.png`）
    - APK 直接: `https://github.com/techgymjp/seiza/releases/latest/download/seiza.apk`
+
+   スマホのカメラで読み取ると、リリース画面が開きます（seiza.apk をタップしてインストール）。
+
+   ![動作確認用 APK のリリース画面の QR コード](docs/apk-qr.png)
 3. GitHub Secrets に署名鍵（`ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`）があれば、本番広告で署名付き AAB を作り Artifact に上げる
 
 AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml` の `admob_app_id`、本番の広告ユニット ID は `js/ads.js` の `UNITS.android.production` にあります。
