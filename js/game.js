@@ -774,7 +774,8 @@
       if (rd && rd.targetSet.has(i)) {
         if (dist < bestTD) { bestTD = dist; bestT = i; }
       } else {
-        const lim = strict ? 6 : 7 + scrR[i] * 1.5;
+        // お題以外の星は、なぞる道すじがすぐ近くを通ったときだけミスにする
+        const lim = strict ? 6 : 4 + scrR[i];
         if (dist < lim && dist < bestOD) { bestOD = dist; bestO = i; }
       }
     }
@@ -791,7 +792,7 @@
       if (isNew) {
         rd.found.add(i);
         state.effects.push({ idx: i, kind: 'hit', t: performance.now(), dur: 600 });
-        sound.note(rd.found.size);
+        sound.note(requiredFound(rd) || 1);
       }
       const prev = pointer.lastStar;
       if (prev >= 0 && prev !== i) {
@@ -800,7 +801,7 @@
       }
       pointer.lastStar = i;
       updateTask();
-      if (rd.found.size === rd.targetSet.size) solveRound();
+      if (requiredFound(rd) === rd.required.size) solveRound();
     } else if (!pointer.missed.has(i)) {
       pointer.missed.add(i);
       rd.misses++;
@@ -808,6 +809,12 @@
       sound.miss();
       updateTask();
     }
+  }
+
+  function requiredFound(rd) {
+    let n = 0;
+    rd.required.forEach((i) => { if (rd.found.has(i)) n++; });
+    return n;
   }
 
   function traceAlong(x0, y0, x1, y1) {
@@ -1069,7 +1076,9 @@
     const con = state.rounds[state.roundIndex];
     state.round = {
       con,
-      targetSet: new Set(con.catIdx),
+      targetSet: new Set(con.catIdx), // さわってもミスにならない星
+      // 正解に必要な星 = 星座の線でつながっている星 (すばる・みなみじゅうじ座のε星などは除く)
+      required: new Set(con.lines.flat().map((k) => con.catIdx[k])),
       found: new Set(),
       segments: [],
       segKeys: new Set(),
@@ -1141,11 +1150,23 @@
   }
 
   function centerOn(con) {
-    const v = conCenterEnu(con, sky.lst);
+    const lst = sky.lst;
+    const v = conCenterEnu(con, lst);
     const aa = A.enuToAltAz(v);
-    // 正解カードに隠れないよう、星座が画面の上寄りに来るようにする
-    const shift = (state.view.fov * H / Math.max(W, H)) * 0.2;
-    animateView(aa.az, Math.max(-10, Math.min(80, aa.alt - shift)));
+    let radius = 0;
+    con.catIdx.forEach((i) => {
+      radius = Math.max(radius, Math.acos(Math.max(-1, Math.min(1, dot(starEnu(i, lst), v)))) / D2R);
+    });
+    // 正解カードとお題の枠のあいだの空いている場所に、星座全体が入るようにする
+    const sheetH = Math.min(H * (H <= 640 ? 0.56 : 0.52), 420);
+    const hudBottom = ($('task').getBoundingClientRect().bottom || 100) + 8;
+    const freeTop = hudBottom, freeBottom = Math.max(hudBottom + 80, H - sheetH - 8);
+    const freeH = freeBottom - freeTop;
+    const maxDim = Math.max(W, H);
+    const fitFov = Math.max(25, Math.min(120, (2 * radius * maxDim) / (0.85 * Math.min(freeH, W))));
+    const shiftPx = H / 2 - (freeTop + freeBottom) / 2;
+    const shift = shiftPx * (fitFov / maxDim);
+    animateView(aa.az, Math.max(-10, Math.min(80, aa.alt - shift)), fitFov);
   }
 
   let viewAnim = null;
@@ -1264,10 +1285,11 @@
     });
     const needFov = Math.min(150, ((2 * radius) / 0.7) * (Math.max(W, H) / Math.min(W, H)));
     const aa = A.enuToAltAz(cv);
-    animateView(aa.az, Math.max(-10, Math.min(85, aa.alt)), Math.max(state.view.fov, needFov));
+    // 大きい星座は全体が入るまで広げ、小さい星座は星がなぞりやすい大きさまで拡大する
+    animateView(aa.az, Math.max(-10, Math.min(85, aa.alt)), Math.max(25, needFov));
     // まだ見つけていない星を1つ光らせる (いちばん明るい星から)
-    const rest = rd.con.catIdx.filter((i) => !rd.found.has(i)).sort((a, b) => catMag[a] - catMag[b]);
-    if (rest.length) state.effects.push({ idx: rest[0], kind: 'hint', t: performance.now() + 500, dur: 3500 });
+    const rest = [...rd.required].filter((i) => !rd.found.has(i)).sort((a, b) => catMag[a] - catMag[b]);
+    if (rest.length) state.effects.push({ idx: rest[0], kind: 'hint', t: performance.now() + 900, dur: 3500 });
     updateTask();
   }
 
@@ -1291,7 +1313,7 @@
   function updateTask() {
     const rd = state.round;
     if (!rd) return;
-    $('taskProgress').textContent = tr('progress', { a: rd.found.size, b: rd.targetSet.size });
+    $('taskProgress').textContent = tr('progress', { a: requiredFound(rd), b: rd.required.size });
     $('roundLabel').textContent = tr('round', { a: state.roundIndex + 1, b: state.rounds.length });
     $('scoreLabel').textContent = tr('points', { n: state.totalScore });
     $('missLabel').textContent = rd.misses ? tr('miss', { n: rd.misses }) : '';

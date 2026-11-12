@@ -186,10 +186,33 @@ body:not(.playing) .play-only { display: none; }
   pointer-events: auto;
   margin: auto auto 0;
   padding: 14px 16px;
-  max-height: 48vh;
-  overflow-y: auto;
+  max-height: 52vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+.overlay.bottom-sheet .card > * { flex: none; }
 .overlay.bottom-sheet .card > * + * { margin-top: 8px; }
+.overlay.bottom-sheet .badge { align-self: center; }
+.sheet-body {
+  flex: 1 1 auto !important;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.sheet-body > p { margin: 0; }
+.sheet-body > p + p { margin-top: 8px; }
+
+/* 背の低い画面: イラストと文字を小さくして、説明文の場所を確保する */
+@media (max-height: 640px) {
+  .overlay.bottom-sheet .card { max-height: 56vh; padding: 10px 14px; }
+  .overlay.bottom-sheet .card > * + * { margin-top: 6px; }
+  .overlay.bottom-sheet .badge { padding: 2px 12px; font-size: 0.85rem; }
+  #solvedShape { width: 70px; height: 55px; }
+  #solvedName { font-size: 1.15rem; }
+  #solvedDesc { font-size: 0.85rem; line-height: 1.55; }
+  .overlay.bottom-sheet .primary { padding: 9px 22px; font-size: 1rem; }
+}
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
