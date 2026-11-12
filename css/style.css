@@ -72,12 +72,14 @@ body.playing #hud { display: flex; }
   padding: 6px 12px 6px 6px;
   backdrop-filter: blur(6px);
   min-width: 0;
+  flex: 1;
 }
-#thumb { width: 72px; height: 58px; flex: none; }
+#thumb { width: 116px; height: 93px; flex: none; }
 #thumb[hidden] { display: none; }
-.task-title { font-weight: bold; font-size: 0.95rem; line-height: 1.35; }
-#taskName { color: var(--gold); }
-.task-sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.task-text { min-width: 0; }
+#taskName { color: var(--gold); font-weight: bold; font-size: 1.5rem; line-height: 1.25; }
+.task-title { font-weight: bold; font-size: 0.95rem; line-height: 1.35; margin-top: 2px; }
+.task-sub { font-size: 0.9rem; color: var(--muted); margin-top: 2px; }
 #missLabel { color: var(--warn); margin-left: 6px; }
 #stats {
   background: var(--panel);
@@ -277,6 +279,7 @@ select option { background: var(--panel-solid); }
 @media (max-width: 420px) {
   h1 { font-size: 1.9rem; }
   .card { padding: 18px 14px; }
+  #taskName { font-size: 1.3rem; }
   .task-title { font-size: 0.85rem; }
-  #thumb { width: 60px; height: 48px; }
+  #thumb { width: 100px; height: 80px; }
 }

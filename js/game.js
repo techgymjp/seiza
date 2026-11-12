@@ -627,14 +627,14 @@
     const P = pts.map((p) => [ox + p[0] * sc, oy + p[1] * sc]);
     if (opts.lines !== false) {
       c2.strokeStyle = opts.lineColor || 'rgba(140, 210, 255, 0.75)';
-      c2.lineWidth = Math.max(1, w / 90);
+      c2.lineWidth = Math.max(1, w / 70);
       c2.lineCap = 'round';
       con.lines.forEach(([a, b]) => {
         c2.beginPath(); c2.moveTo(P[a][0], P[a][1]); c2.lineTo(P[b][0], P[b][1]); c2.stroke();
       });
     }
     con.stars.forEach((s, k) => {
-      const rad = Math.max(1.4, (w / 70) * (1 + (3.5 - Math.min(s.mag, 4.5)) * 0.35));
+      const rad = Math.max(1.6, (w / 55) * (1 + (3.5 - Math.min(s.mag, 4.5)) * 0.3));
       c2.fillStyle = opts.starColor || '#fff';
       c2.beginPath(); c2.arc(P[k][0], P[k][1], rad, 0, Math.PI * 2); c2.fill();
     });
