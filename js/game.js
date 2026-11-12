@@ -822,12 +822,40 @@
     return state.view.fov / Math.max(W, H);
   }
 
+  // 操作:
+  //   ゲーム中のタッチ … 1本指でなぞる / 2本指で空を動かす・ピンチで拡大縮小
+  //   マウス           … 星からドラッグでなぞる / 何もないところをドラッグで空を動かす / ホイールで拡大縮小
+  //   ゲーム中以外     … 1本指・マウスのドラッグで空を動かす
+  let pendingTimer = null;
+
+  function startTrace(x, y) {
+    pointer.mode = 'trace';
+    const hit = hitTest(x, y);
+    if (hit >= 0) touchStar(hit);
+  }
+
+  function flushPending() {
+    if (pointer.mode !== 'pending') return;
+    clearTimeout(pendingTimer);
+    pendingTimer = null;
+    startTrace(pointer.x, pointer.y);
+  }
+
+  function centroid() {
+    const ps = [...activePointers.values()];
+    const [a, b] = ps;
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
+  }
+
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (activePointers.size === 2) {
-      const [a, b] = [...activePointers.values()];
-      pinchStart = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: state.view.fov };
+    if (activePointers.size >= 2) {
+      // 2本指: なぞるのをやめて、空の移動・拡大縮小へ
+      clearTimeout(pendingTimer);
+      pendingTimer = null;
+      const c = centroid();
+      pinchStart = { d: Math.max(c.d, 1), fov: state.view.fov, x: c.x, y: c.y };
       pointer.mode = 'pinch';
       pointer.lastStar = -1;
       return;
@@ -837,26 +865,35 @@
     pointer.y = pointer.lastY = e.clientY;
     pointer.missed = new Set();
     pointer.lastStar = -1;
-    // なぞり始めは星の近く、それ以外のドラッグは見回し
-    const hit = state.screen === 'play' ? hitTest(e.clientX, e.clientY, true) : -1;
-    if (hit >= 0) {
-      pointer.mode = 'trace';
-      touchStar(hit);
-    } else {
+    const playing = state.screen === 'play' && state.round && !state.round.solvedAt;
+    if (!playing) {
       pointer.mode = 'pan';
+    } else if (e.pointerType === 'mouse') {
+      // マウス: 星の上から始めたらなぞる、それ以外は空を動かす
+      const hit = hitTest(e.clientX, e.clientY, true);
+      if (hit >= 0) { pointer.mode = 'trace'; touchStar(hit); } else pointer.mode = 'pan';
+    } else {
+      // タッチ: 2本目の指が来るかを少しだけ待ってから、なぞり始める
+      pointer.mode = 'pending';
+      pendingTimer = setTimeout(flushPending, 90);
     }
   });
 
   canvas.addEventListener('pointermove', (e) => {
     if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointer.mode === 'pinch' && activePointers.size >= 2 && pinchStart) {
-      const [a, b] = [...activePointers.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      setFov(pinchStart.fov * (pinchStart.d / Math.max(d, 1)));
+    if (pointer.mode === 'pinch') {
+      if (activePointers.size < 2 || !pinchStart) return;
+      const c = centroid();
+      const k = degPerPx();
+      state.view.az = A.norm360(state.view.az - (c.x - pinchStart.x) * k);
+      state.view.alt = Math.max(-10, Math.min(85, state.view.alt + (c.y - pinchStart.y) * k));
+      pinchStart.x = c.x; pinchStart.y = c.y;
+      setFov(pinchStart.fov * (pinchStart.d / Math.max(c.d, 1)));
       return;
     }
     if (e.pointerId !== pointer.id) return;
     const x = e.clientX, y = e.clientY;
+    if (pointer.mode === 'pending' && Math.hypot(x - pointer.lastX, y - pointer.lastY) > 6) flushPending();
     if (pointer.mode === 'trace') {
       traceAlong(pointer.x, pointer.y, x, y);
     } else if (pointer.mode === 'pan') {
@@ -864,12 +901,17 @@
       state.view.az = A.norm360(state.view.az - (x - pointer.x) * k);
       state.view.alt = Math.max(-10, Math.min(85, state.view.alt + (y - pointer.y) * k));
     }
-    pointer.x = x; pointer.y = y;
+    if (pointer.mode !== 'pending') { pointer.x = x; pointer.y = y; }
   });
 
   function endPointer(e) {
     activePointers.delete(e.pointerId);
-    if (activePointers.size < 2) pinchStart = null;
+    if (pointer.mode === 'pending' && e.pointerId === pointer.id) flushPending(); // 星をタップ
+    if (pointer.mode === 'pinch') {
+      // 2本指の操作中に指を1本離しても、残りの指ではなぞらない
+      if (activePointers.size === 0) { pointer.mode = null; pinchStart = null; }
+      return;
+    }
     if (e.pointerId === pointer.id || activePointers.size === 0) {
       pointer.mode = null; pointer.id = null; pointer.lastStar = -1;
     }
@@ -944,6 +986,8 @@
 
   // スタート時にコンパスの方角を読み取り、その方角の空を表示する (追従はしない)
   async function applyStartHeading() {
+    // コンパスがあるのはスマホ・タブレットだけなので、パソコンでは待たない
+    if (!navigator.maxTouchPoints || typeof DeviceOrientationEvent === 'undefined') return;
     await requestOrientationPermission();
     const t0 = performance.now();
     while (state.deviceHeading == null && performance.now() - t0 < 700) {
