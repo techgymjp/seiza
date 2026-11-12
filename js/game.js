@@ -4,6 +4,12 @@
   const A = window.Astro;
   const T = window.I18N;
   const tr = T.t;
+  // Android アプリ(Capacitor)で動いているか。Web 版では Capacitor がないので何もしない
+  const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const plugin = (name) => (NATIVE && window.Capacitor.Plugins ? window.Capacitor.Plugins[name] : null);
+  const Ads = window.Ads || { available: false, canReward: false, hasBanner: false, showing: false, initDone: Promise.resolve(), showInterstitial: async () => {}, showRewarded: async () => 'unavailable', setBanner() {}, showPrivacyOptions: async () => {} };
+  const REDO_MAX = 5;      // 広告を見てお題をやり直せる回数 (1 ゲーム)
+  const REDO_WAIT = 6;     // やり直しの案内を出しておく秒数 (過ぎたら答えを見る)
   const D2R = A.D2R;
 
   // ---------------------------------------------------------------
@@ -1068,6 +1074,7 @@
     state.totalScore = 0;
     state.history = [];
     state.solvedCons = [];
+    state.redoUsed = 0;
     showOverlay(null);
     state.screen = 'play';
     document.body.classList.add('playing');
@@ -1087,6 +1094,8 @@
       misses: 0,
       hints: 0,
       startTime: performance.now(),
+      pausedMs: 0,      // ポーズや案内の表示で止まっていた時間
+      pausedAt: 0,
       solvedAt: 0,
       gaveUp: false,
     };
@@ -1113,8 +1122,8 @@
   function elapsedSec() {
     const rd = state.round;
     if (!rd) return 0;
-    const end = rd.solvedAt || performance.now();
-    return (end - rd.startTime) / 1000;
+    const end = rd.solvedAt || rd.pausedAt || performance.now();
+    return (end - rd.startTime - rd.pausedMs) / 1000;
   }
 
   function roundScore(rd) {
@@ -1238,6 +1247,8 @@
       li.innerHTML = `<span>${T.conName(h.con)}</span><span>${h.gaveUp ? tr('gaveUp') : tr('points', { n: h.score })}</span>`;
       list.appendChild(li);
     });
+    $('resultRedo').hidden = !state.redoUsed;
+    $('resultRedo').textContent = state.redoUsed ? tr('redoUsed', { n: state.redoUsed }) : '';
     $('shareStatus').textContent = '';
     showOverlay('result');
   }
@@ -1245,10 +1256,17 @@
   // 結果のシェア: スマホは共有メニュー、使えなければ文章をコピー
   async function shareResult() {
     const found = state.history.filter((h) => !h.gaveUp).map((h) => T.conName(h.con));
-    const text = tr('shareText', { n: state.totalScore, list: found.length ? found.join(tr('listSep')) : tr('shareNone') });
+    let text = tr('shareText', { n: state.totalScore, list: found.length ? found.join(tr('listSep')) : tr('shareNone') });
+    if (state.redoUsed) text = text.replace('\n', tr('shareRedo', { n: state.redoUsed }) + '\n');
     const url = SHARE_URL;
     const status = $('shareStatus');
     status.textContent = '';
+    const share = plugin('Share');
+    if (share) {
+      // アプリ: Android の共有メニュー
+      try { await share.share({ title: tr('appTitle'), text, url, dialogTitle: tr('share') }); } catch (e) { /* キャンセル */ }
+      return;
+    }
     if (navigator.share) {
       try {
         await navigator.share({ title: tr('appTitle'), text, url });
@@ -1302,11 +1320,108 @@
   }
 
   function quitToTitle() {
+    closePause(false);
+    closeRedo();
     state.round = null;
     state.screen = 'title';
     document.body.classList.remove('playing');
     refreshTitle();
     showOverlay('title');
+  }
+
+  // ---------- 全画面広告 (アプリのみ) ----------
+  // 「スタート」「もういちど」「タイトルへ」「ポーズからの再開」のたびに出す
+  let adBusy = false;
+  async function withInterstitial(next) {
+    if (adBusy) return;
+    if (Ads.available) {
+      adBusy = true;
+      await Ads.showInterstitial(3000);
+      adBusy = false;
+    }
+    next();
+  }
+
+  // ゲームを始める: スタート音 → (アプリなら全画面広告) → コンパスの方角を読む → 開始
+  async function beginGame() {
+    sound.unlock();
+    sound.start();
+    if (Ads.available) await withInterstitial(() => {});
+    await applyStartHeading();
+    startGame();
+  }
+
+  // ---------- ポーズ ----------
+  function pauseClock() {
+    const rd = state.round;
+    if (rd && !rd.solvedAt && !rd.pausedAt) rd.pausedAt = performance.now();
+  }
+  function resumeClock() {
+    const rd = state.round;
+    if (rd && rd.pausedAt) { rd.pausedMs += performance.now() - rd.pausedAt; rd.pausedAt = 0; }
+  }
+  function isPlaying() {
+    return state.screen === 'play' || state.screen === 'solved';
+  }
+  function openPause() {
+    if (!isPlaying() || !$('pause').hidden || !$('redo').hidden) return;
+    pauseClock();
+    pointer.mode = null;
+    $('pause').hidden = false;
+    updateBanner();
+  }
+  function closePause(resume) {
+    if ($('pause').hidden) return;
+    $('pause').hidden = true;
+    if (resume) resumeClock();
+    updateBanner();
+  }
+
+  // ---------- 広告を見てお題をやり直す (アプリのリワード広告) ----------
+  // 🏳️ を押したとき、答えを見る前に「広告を見てやり直す」を出す。数秒で自動的に答えへ進む
+  const redo = { active: false, busy: false, t: 0, timer: null };
+  function askGiveUp() {
+    const rd = state.round;
+    if (!rd || rd.solvedAt) return;
+    if (!Ads.canReward || state.redoUsed >= REDO_MAX) { giveUp(); return; }
+    pauseClock();
+    Object.assign(redo, { active: true, busy: false, t: REDO_WAIT });
+    $('btnRedoWatch').disabled = false;
+    $('btnRedoWatch').textContent = tr('redoWatch');
+    $('redoNote').textContent = tr('redoNote', { n: REDO_MAX - state.redoUsed, max: REDO_MAX });
+    $('btnRedoAnswer').textContent = tr('redoAnswer', { s: redo.t });
+    $('redo').hidden = false;
+    clearInterval(redo.timer);
+    redo.timer = setInterval(() => {
+      if (redo.busy) return;
+      redo.t--;
+      $('btnRedoAnswer').textContent = tr('redoAnswer', { s: Math.max(0, redo.t) });
+      if (redo.t <= 0) { closeRedo(); resumeClock(); giveUp(); }
+    }, 1000);
+  }
+  function closeRedo() {
+    redo.active = false;
+    clearInterval(redo.timer);
+    redo.timer = null;
+    $('redo').hidden = true;
+  }
+  async function watchRedo() {
+    if (!redo.active || redo.busy) return;
+    redo.busy = true;
+    $('btnRedoWatch').disabled = true;
+    $('btnRedoWatch').textContent = tr('redoLoading');
+    const result = await Ads.showRewarded();
+    if (!redo.active) return;
+    if (result === 'unavailable') {
+      $('redoNote').textContent = tr('redoFail');
+      setTimeout(() => { if (redo.active) { closeRedo(); resumeClock(); giveUp(); } }, 2000);
+      return;
+    }
+    closeRedo();
+    if (result !== 'rewarded') { resumeClock(); giveUp(); return; }
+    // このお題の成績を取り消して、同じお題を最初からやり直す (見ている方向はそのまま)
+    state.redoUsed++;
+    startRound();
   }
 
   // ---------------------------------------------------------------
@@ -1362,9 +1477,20 @@
   // オーバーレイ・設定
   // ---------------------------------------------------------------
   function showOverlay(name) {
-    ['title', 'solved', 'result', 'settings', 'zukan'].forEach((n) => {
+    ['title', 'howto', 'solved', 'result', 'settings', 'zukan'].forEach((n) => {
       $(n).hidden = n !== name;
     });
+    state.overlay = name;
+    updateBanner();
+  }
+
+  // バナー広告: タイトル・あそびかた・ポーズ・結果画面だけ (プレイ中は操作の邪魔になるので出さない)
+  function updateBanner() {
+    const paused = !$('pause').hidden;
+    const want = paused || ['title', 'howto', 'result'].includes(state.overlay);
+    Ads.setBanner(want);
+    // バナーと画面下のボタンが重ならないよう、下をあける
+    document.body.classList.toggle('banner-space', want && Ads.hasBanner);
   }
 
   function refreshTitle() {
@@ -1506,24 +1632,26 @@
   // ---------------------------------------------------------------
   function bind(id, fn) { $(id).addEventListener('click', fn); }
 
-  bind('btnStart', async () => {
-    sound.unlock();
-    sound.start();
-    await applyStartHeading();
-    startGame();
-  });
+  bind('btnStart', beginGame);
+  bind('btnHowto', () => showOverlay('howto'));
+  bind('btnHowtoPlay', beginGame);
+  bind('btnHowtoBack', () => withInterstitial(() => { refreshTitle(); showOverlay('title'); }));
+  bind('btnResume', () => withInterstitial(() => closePause(true)));
+  bind('btnPauseTitle', () => withInterstitial(quitToTitle));
+  bind('btnRedoWatch', watchRedo);
+  bind('btnRedoAnswer', () => { if (!redo.active || redo.busy) return; closeRedo(); resumeClock(); giveUp(); });
   document.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => {
     state.difficulty = b.dataset.diff;
     writeSave({ difficulty: state.difficulty });
     refreshTitle();
   }));
   bind('btnHint', useHint);
-  bind('btnGiveUp', giveUp);
+  bind('btnGiveUp', askGiveUp);
   bind('btnNext', nextRound);
-  bind('btnAgain', async () => { sound.unlock(); sound.start(); await applyStartHeading(); startGame(); });
-  bind('btnToTitle', quitToTitle);
+  bind('btnAgain', beginGame);
+  bind('btnToTitle', () => withInterstitial(quitToTitle));
   bind('btnShare', shareResult);
-  bind('btnQuit', quitToTitle);
+  bind('btnQuit', openPause);
   bind('btnZoomIn', () => setFov(state.view.fov / 1.25));
   bind('btnZoomOut', () => setFov(state.view.fov * 1.25));
   bind('btnSettings', openSettings);
@@ -1636,6 +1764,35 @@
   }
   requestAnimationFrame(loop);
 
-  // テスト・デバッグ用
+  // ---------- アプリ (Android) ----------
+  // 戻るボタン: プレイ中はポーズ (ポーズ中なら再開)、タイトル・結果画面ではアプリを終了
+  if (plugin('App')) {
+    plugin('App').addListener('backButton', () => {
+      if (adBusy || Ads.showing) return;
+      if (!$('redo').hidden) return;
+      if (!$('pause').hidden) { withInterstitial(() => closePause(true)); return; }
+      if (isPlaying()) { openPause(); return; }
+      if (state.overlay === 'settings') { closeSettings(false); return; }
+      if (state.overlay === 'zukan') { $('btnZukanClose').click(); return; }
+      if (state.overlay === 'howto') { $('btnHowtoBack').click(); return; }
+      plugin('App').exitApp();
+    });
+  }
+  // 別のアプリに切り替えたらポーズする (音は bgm.js が止める)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && state.screen === 'play' && state.round && !state.round.solvedAt) openPause();
+  });
+  // タイトル画面の下に、バージョン・プライバシーポリシー・広告の設定 (EU など) を出す (アプリのみ)
+  if (NATIVE) {
+    $('legal').hidden = false;
+    if (window.APP_VERSION && window.APP_VERSION !== 'dev') $('buildInfo').textContent = window.APP_VERSION + ' |';
+    Ads.initDone.then(() => { if (Ads.privacyOptionsRequired) $('adPrivacy').hidden = false; });
+    $('adPrivacyLink').addEventListener('click', (e) => { e.preventDefault(); Ads.showPrivacyOptions(); });
+  }
+  updateBanner();
+
+  // テスト・デバッグ用 (アプリには入れない)
+  // web-only:start
   window.__seiza = { state, CONS, drawShape, scrX, scrY, scrVis, setLocation, startGame, centerOn, visibleConstellations, refreshTitle };
+  // web-only:end
 })();

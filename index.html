@@ -64,7 +64,7 @@
       <button id="btnSettings" class="ctl" title="場所と時刻" data-i18n-title="t_settings">⚙️</button>
       <button id="btnBgm" class="ctl" title="BGM">🎵</button>
       <button id="btnMute" class="ctl" title="効果音" data-i18n-title="t_mute">🔊</button>
-      <button id="btnQuit" class="ctl play-only" title="タイトルへ" data-i18n-title="t_quit">✕</button>
+      <button id="btnQuit" class="ctl play-only" title="ポーズ" data-i18n-title="t_pause">⏸</button>
     </div>
   </footer>
 
@@ -92,20 +92,42 @@
         <button id="btnTitleSettings" data-i18n="placeTime">⚙️ 場所・時刻</button>
       </div>
       <p id="bestLabel" class="small"></p>
-      <details class="howto">
-        <summary data-i18n="howtoTitle">あそびかた</summary>
-        <ul id="howtoList">
-          <li>「◯◯座 をさがして」とお題が出ます。左上の図がその星座の形です。</li>
-          <li>夜空からその星座を見つけたら、星を指（マウス）でなぞってみよう。なぞった星と星が線で結ばれます。</li>
-          <li>お題の星座の星を<strong>全部</strong>なぞったら正解！星座絵が浮かび上がります。</li>
-          <li>スマホでは、2本指で動かすと空を見回せます。ピンチで拡大縮小。</li>
-          <li>パソコンでは、なにもないところをドラッグすると空を見回せます。ホイールで拡大縮小。</li>
-          <li>スマホでは、スタートしたときに向いている方角の空から始まります。</li>
-          <li>星空・太陽・月・惑星は、いまの時刻と場所にあわせて計算しています。</li>
-          <li>ちがう星をなぞるとミス。💡ヒントを押すと、その星座のところまで空が動いて、まだ見つけていない星が光ります。🏳️でこたえを見られます。</li>
-          <li>右上のコンパスで、いま見ている方角がわかります。</li>
-        </ul>
-      </details>
+      <button id="btnHowto" data-i18n="howtoButton">❓ あそびかた</button>
+      <!-- アプリ版だけ: バージョン・プライバシーポリシー・広告の設定 (EU など) -->
+      <div id="legal" class="small" hidden>
+        <span id="buildInfo"></span>
+        <a id="privacyLink" href="https://techgym.jp/privacy-policy/" target="_blank" rel="noopener" data-i18n="privacy">プライバシーポリシー</a>
+        <span id="adPrivacy" hidden>| <a href="#" id="adPrivacyLink" data-i18n="adSettings">広告の設定</a></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- あそびかた -->
+  <section id="howto" class="overlay" hidden>
+    <div class="card">
+      <h2 data-i18n="howtoTitle">あそびかた</h2>
+      <ul id="howtoList" class="howto-list"></ul>
+      <button id="btnHowtoPlay" class="primary" data-i18n="start">スタート</button>
+      <button id="btnHowtoBack" data-i18n="toTitle">タイトルへ</button>
+    </div>
+  </section>
+
+  <!-- ポーズ (ほかの画面の上に重ねる) -->
+  <section id="pause" class="overlay top-layer" hidden>
+    <div class="card">
+      <h2 data-i18n="pauseTitle">ポーズ</h2>
+      <button id="btnResume" class="primary" data-i18n="resume">つづける</button>
+      <button id="btnPauseTitle" data-i18n="toTitle">タイトルへ</button>
+    </div>
+  </section>
+
+  <!-- あきらめる前に: 広告を見てこのお題をやり直す (アプリ版のリワード広告) -->
+  <section id="redo" class="overlay top-layer" hidden>
+    <div class="card">
+      <h2 data-i18n="redoTitle">こたえを見る？</h2>
+      <p id="redoNote" class="small"></p>
+      <button id="btnRedoWatch" class="primary" data-i18n="redoWatch">📺 広告を見てやり直す</button>
+      <button id="btnRedoAnswer"></button>
     </div>
   </section>
 
@@ -136,6 +158,7 @@
       <h2 data-i18n="result">けっか</h2>
       <div id="resultScore" class="big"></div>
       <div id="resultBest" class="small"></div>
+      <div id="resultRedo" class="small" hidden></div>
       <ul id="resultList"></ul>
       <button id="btnShare" class="share" data-i18n="share">📤 シェア</button>
       <div id="shareStatus" class="small" aria-live="polite"></div>
@@ -175,12 +198,15 @@
     </div>
   </section>
 
+  <script src="js/ads-config.js"></script>
+  <script src="js/build-info.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/stars.js"></script>
   <script src="js/constellations.js"></script>
   <script src="js/figures.js"></script>
   <script src="js/astro.js"></script>
   <script src="js/bgm.js"></script>
+  <script src="js/ads.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

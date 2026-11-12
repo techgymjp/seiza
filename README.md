@@ -43,11 +43,45 @@ python3 -m http.server 8000
 
 HTTPS で配信されるため、位置情報やスマホのコンパスもそのまま使えます。`.nojekyll` は Jekyll の変換を止めて、ファイルをそのまま配信するためのものです。
 
+## Android アプリ
+
+[Capacitor](https://capacitorjs.com/) でゲームのファイルをアプリに同梱し、Android アプリにしています（オフラインで遊べます。位置情報とコンパスは端末の中だけで使います）。
+構成は techgymjp/jet-fighter の `docs/ANDROID_PORTING.md`、techgymjp/jackal と同じです。
+
+- パッケージ名: `jp.techgym.seiza`
+- アプリ名: 星座みつけ（英語の端末では Star Finder）
+- 縦画面固定・全画面・プレイ中は画面を消さない
+- 位置情報の権限（いまいる場所の空を計算するため。送信はしない）
+- 戻るボタン: プレイ中はポーズ（ポーズ中なら再開）、タイトル・結果画面ではアプリを終了。あそびかた・設定・ずかんは閉じる
+- 別アプリに切り替えると自動でポーズし、音を止める
+- シェアは Android の共有メニュー
+- 広告（AdMob）
+  - バナー: タイトル・あそびかた・ポーズ・結果画面の下中央（プレイ中は出さない）
+  - 全画面広告（インタースティシャル）: 「スタート」（タイトル・あそびかたから）、「もういちど」、「タイトルへ」（あそびかた・ポーズ・結果画面から）、ポーズからの「つづける」のたびに毎回
+  - リワード広告（チート）: 🏳️（こたえを見る）を押したときに「広告を見てやり直す」を出す（1 ゲーム 5 回まで、6 秒で自動的に答えへ進む）。
+    見終わるとそのお題の時間・ミス・ヒントを取り消して、同じお題を最初からやり直す。使ったことは結果画面とシェア文に「やり直し N 回」と出る
+  - EU など同意が必要な地域ではタイトル画面に「広告の設定」
+- タイトル画面にバージョン（ビルド番号）とプライバシーポリシーへのリンク
+
+ビルドは GitHub Actions（`.github/workflows/android.yml`）で行います。
+
+1. `npm ci` → `npm run build:app`（`www/` に Web ファイルをコピーし、Web 版だけの部分（テスト用の `window.__seiza`）を取り除き、`js/ads-config.js` と `js/build-info.js` を生成）→ `npx cap sync android` → `./gradlew assembleDebug`
+2. 既定ブランチなら、Release `android-latest` の `seiza.apk` を差し替え（動作確認用・テスト広告）
+   - リリース画面: `https://github.com/techgymjp/seiza/releases/tag/android-latest`（QR コード: `docs/apk-qr.png`）
+   - APK 直接: `https://github.com/techgymjp/seiza/releases/latest/download/seiza.apk`
+3. GitHub Secrets に署名鍵（`ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`）があれば、本番広告で署名付き AAB を作り Artifact に上げる
+
+AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml` の `admob_app_id`、本番の広告ユニット ID は `js/ads.js` の `UNITS.android.production` にあります。
+動作確認用 APK はどれもテスト広告、Google Play 用の AAB は本番の広告です（広告ユニット ID が空の種類は出さない）。
+
+Web 版（GitHub Pages）は今までどおりリポジトリの `index.html` をそのまま配信します（ビルド不要）。`npm run build` で `www/` に Web 版をまとめることもできます。
+
 ## ファイル構成
 
 - `index.html` … 画面
 - `css/style.css` … スタイル
 - `js/i18n.js` … 日本語・英語の文言（星座名・解説・星の名前を含む）
+- `js/ads.js` … AdMob 広告（アプリのときだけ動く。Web 版では何もしない）
 - `js/game.js` … ゲーム本体（描画・入力・進行）
 - `js/bgm.js` … BGM（Web Audio でその場で合成。音声ファイルなし）
 - `js/astro.js` … 天文計算（恒星時、地平座標、太陽・月・惑星）
@@ -60,6 +94,12 @@ HTTPS で配信されるため、位置情報やスマホのコンパスもそ�
 - 恒星は J2000 座標をそのまま使用（歳差は無視、ずれは0.4°程度）。
 - 惑星は JPL の近似軌道要素（1800〜2050年有効）、月は簡易摂動式（誤差0.2°程度）。
 - コンパスは磁北基準のため、日本では真北から西に数度ずれます。
+
+## ライセンス
+
+著作権はテックジム株式会社に帰属します（All rights reserved）。許可なく複製・改変・再配布すること、Web サイトやアプリ（Google Play、App Store など）として公開・販売すること、名前・ロゴ・アイコン・画像を使うことを禁止します。
+テックジムの受講生が学習目的で複製・改変することは許可します（アプリストアでの公開・広告の掲載・販売などの商用利用は禁止、著作権表示は残す）。詳しくは `LICENSE` を見てください。
+恒星データ（`js/stars.js`）は d3-celestial のもので、BSD 3-Clause License のままです。
 
 ## クレジット
 

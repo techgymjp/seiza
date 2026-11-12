@@ -1,0 +1,8 @@
+{
+  "appId": "jp.techgym.seiza",
+  "appName": "星座みつけ",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#040818"
+  }
+}

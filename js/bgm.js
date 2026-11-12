@@ -230,8 +230,21 @@
   document.addEventListener('visibilitychange', () => {
     if (!ac) return;
     if (document.hidden) ac.suspend();
-    else if (playing) ac.resume();
+    else if (playing && !suspendedByApp) ac.resume();
   });
+
+  // 広告の表示中などに、BGM と効果音をまとめて止める・再開する (js/ads.js から使う)
+  let suspendedByApp = false;
+  window.AppAudio = {
+    suspend() {
+      suspendedByApp = true;
+      if (ac && ac.state === 'running') ac.suspend().catch(() => {});
+    },
+    resume() {
+      suspendedByApp = false;
+      if (ac && !document.hidden) resume();
+    },
+  };
 
   window.BGM = {
     start, stop, isPlaying: () => playing, state: () => (ac ? ac.state : 'none'),

@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">星座みつけ</string>
+    <string name="title_activity_main">星座みつけ</string>
+    <string name="package_name">jp.techgym.seiza</string>
+    <string name="custom_url_scheme">jp.techgym.seiza</string>
+    <!-- AdMob のアプリ ID。本番の ID が届くまでは Google 公式のテスト用 ID（本番の AAB を出す前に差し替える） -->
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+</resources>

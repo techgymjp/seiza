@@ -1,0 +1,22 @@
+{
+  "name": "seiza",
+  "version": "1.0.0",
+  "private": true,
+  "description": "星座みつけ いまの夜空から星座をさがして星をなぞるゲーム（Web / Android）",
+  "scripts": {
+    "build": "node scripts/build-web.js",
+    "build:app": "APP_BUILD=1 node scripts/build-web.js",
+    "android:sync": "npm run build:app && npx cap sync android",
+    "android:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.2.1",
+    "@capacitor/android": "8.5.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
+}

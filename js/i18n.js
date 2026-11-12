@@ -18,13 +18,28 @@
       zukan: '📖 ずかん',
       placeTime: '⚙️ 場所・時刻',
       best: '自己ベスト {n} 点',
+      howtoPc: 'パソコンでは、なにもないところをドラッグすると空を見回せます。ホイールで拡大縮小。',
+      howtoButton: '❓ あそびかた',
+      pauseTitle: 'ポーズ',
+      resume: 'つづける',
+      t_pause: 'ポーズ',
+      redoTitle: 'こたえを見る？',
+      redoWatch: '📺 広告を見てやり直す',
+      redoNote: '広告を見ると、このお題を最初からやり直せます（時間・ミス・ヒントはリセット。のこり {n} / {max} 回）',
+      redoAnswer: 'こたえを見る（{s}）',
+      redoLoading: '広告を読み込んでいます…',
+      redoFail: '広告を読み込めませんでした',
+      redoUsed: 'やり直し {n} 回',
+      shareRedo: '（やり直し {n} 回）',
+      privacy: 'プライバシーポリシー',
+      privacyUrl: 'https://techgym.jp/privacy-policy/',
+      adSettings: '広告の設定',
       howtoTitle: 'あそびかた',
       howto: [
         '「◯◯座 をさがして」とお題が出ます。左上の図がその星座の形です。',
         '夜空からその星座を見つけたら、星を指（マウス）でなぞってみよう。なぞった星と星が線で結ばれます。',
         'お題の星座の星を<strong>全部</strong>なぞったら正解！星座絵が浮かび上がります。',
         'スマホでは、2本指で動かすと空を見回せます。ピンチで拡大縮小。',
-        'パソコンでは、なにもないところをドラッグすると空を見回せます。ホイールで拡大縮小。',
         'スマホでは、スタートしたときに向いている方角の空から始まります。',
         '星空・太陽・月・惑星は、いまの時刻と場所にあわせて計算しています。',
         'ちがう星をなぞるとミス。💡ヒントを押すと、その星座のところまで空が動いて、まだ見つけていない星が光ります。🏳️でこたえを見られます。',
@@ -106,13 +121,28 @@
       zukan: '📖 Collection',
       placeTime: '⚙️ Place & time',
       best: 'Best score {n}',
+      howtoPc: 'On a computer, drag an empty part of the sky to look around. Use the mouse wheel to zoom.',
+      howtoButton: '❓ How to play',
+      pauseTitle: 'Paused',
+      resume: 'Resume',
+      t_pause: 'Pause',
+      redoTitle: 'Show the answer?',
+      redoWatch: '📺 Watch an ad to try again',
+      redoNote: 'Watch an ad to restart this round from the beginning (time, misses and hints are reset; {n} / {max} left)',
+      redoAnswer: 'Show the answer ({s})',
+      redoLoading: 'Loading the ad…',
+      redoFail: 'Could not load the ad',
+      redoUsed: '{n} retries',
+      shareRedo: ' ({n} retries)',
+      privacy: 'Privacy policy',
+      privacyUrl: 'https://techgym.jp/privacy-policy-en/',
+      adSettings: 'Ad settings',
       howtoTitle: 'How to play',
       howto: [
         'You will be asked to "Find" a constellation. The picture at the top left shows its shape.',
         'When you spot it in the sky, trace its stars with your finger (or mouse). The stars you trace are joined with lines.',
         'Trace <strong>all</strong> of its stars to get it right! The constellation figure will appear.',
         'On a phone, move two fingers to look around the sky. Pinch to zoom.',
-        'On a computer, drag an empty part of the sky to look around. Use the mouse wheel to zoom.',
         'On a phone, the game starts with the part of the sky your phone is facing.',
         'The stars, Sun, Moon and planets are calculated for your current time and place.',
         'Tracing a wrong star counts as a miss. 💡Hint moves the sky to the constellation and makes a star you have not found yet blink. 🏳️ shows the answer.',
@@ -319,7 +349,15 @@
       document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = I.t(el.dataset.i18nTitle); });
       document.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', I.t(el.dataset.i18nAria)); });
       const ul = document.getElementById('howtoList');
-      if (ul) ul.innerHTML = I.t('howto').map((h) => `<li>${h}</li>`).join('');
+      if (ul) {
+        // パソコン向けの操作説明は、アプリでは出さない
+        const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+        const items = I.t('howto').slice();
+        if (!native) items.splice(4, 0, I.t('howtoPc'));
+        ul.innerHTML = items.map((h) => `<li>${h}</li>`).join('');
+      }
+      const pl = document.getElementById('privacyLink');
+      if (pl) pl.href = I.t('privacyUrl');
       // コンパスの文字
       const c = document.querySelectorAll('#compassDial text');
       const d = DIR8[I.lang];

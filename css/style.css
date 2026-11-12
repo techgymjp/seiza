@@ -266,9 +266,6 @@ h2 { margin: 0; font-size: 1.4rem; }
 .diff button { padding: 8px 14px; }
 .row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.howto { text-align: left; font-size: 0.85rem; color: var(--muted); }
-.howto summary { cursor: pointer; text-align: center; color: var(--text); }
-.howto ul { padding-left: 1.2em; line-height: 1.6; }
 
 label { display: block; text-align: left; font-size: 0.85rem; color: var(--muted); }
 input, select {
@@ -345,3 +342,19 @@ button.share {
   font-weight: bold;
 }
 #shareStatus:empty { display: none; }
+
+/* ---------- アプリ版 (Android) ---------- */
+/* ポーズ・やり直しの案内は、ほかの画面の上に重ねる */
+.overlay.top-layer { z-index: 10; background: rgba(2, 5, 16, 0.7); }
+.overlay.top-layer .card > button { display: block; margin-left: auto; margin-right: auto; }
+#btnRedoWatch:disabled { opacity: 0.6; }
+/* バナー広告 (画面の下中央・高さ 50) と画面下のボタンが重ならないようにする */
+body.banner-space #bottom { bottom: 54px; }
+body.banner-space .overlay { padding-bottom: 70px; }
+/* あそびかた */
+.howto-list { text-align: left; font-size: 0.9rem; line-height: 1.65; color: var(--text); padding-left: 1.2em; margin: 0; }
+.howto-list li + li { margin-top: 6px; }
+#howto .card > button { display: block; margin-left: auto; margin-right: auto; }
+/* バージョン・プライバシーポリシー */
+#legal a { color: var(--accent); }
+#legal[hidden], #adPrivacy[hidden] { display: none; }
