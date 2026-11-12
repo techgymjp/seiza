@@ -310,6 +310,4 @@ select option { background: var(--panel-solid); }
   #thumb { width: 112px; height: 90px; }
 }
 
-/* 英語表示: タイトルが長いので字間と大きさを調整 */
-html[lang="en"] h1 { letter-spacing: 0.02em; font-size: 1.9rem; }
 #title .card h1 { margin-top: 18px; }

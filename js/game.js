@@ -1403,12 +1403,19 @@
   // ---------------------------------------------------------------
   const sound = (() => {
     let ac = null;
+    let out = null;
     function ensure() {
       if (state.muted) return null;
       if (!ac) {
-        try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+        // BGM と同じ音声出力を使う (別々に鳴らすと足し合わさって割れやすい)
+        const shared = window.BGM && window.BGM.audio();
+        if (shared) { ac = shared.ac; out = shared.out; }
+        else {
+          try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+          out = ac.destination;
+        }
       }
-      if (ac.state === 'suspended') ac.resume();
+      if (ac.state !== 'running') { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); }
       return ac;
     }
     function tone(freq, dur, type, vol, delay) {
@@ -1421,7 +1428,7 @@
       g.gain.setValueAtTime(0, t0);
       g.gain.linearRampToValueAtTime(vol || 0.15, t0 + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g).connect(a.destination);
+      o.connect(g).connect(out);
       o.start(t0); o.stop(t0 + dur + 0.05);
     }
     const scale = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093, 2349, 2637, 3136];
@@ -1433,7 +1440,7 @@
         [659, 784, 988, 1319, 1568, 1976].forEach((f, i) => tone(f, 0.9, 'sine', 0.13, i * 0.07));
         tone(2637, 1.2, 'sine', 0.05, 0.42);
       },
-      miss: () => tone(150, 0.2, 'square', 0.07),
+      miss: () => tone(240, 0.2, 'square', 0.05),
       fanfare: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.6, 'triangle', 0.15, i * 0.11)),
     };
   })();

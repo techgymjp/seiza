@@ -23,7 +23,8 @@
   let timer = null;
   let playing = false;
   let nextChordTime = 0, chordIndex = 0, nextBellTime = 0;
-  let VOLUME = 1.3;
+  let VOLUME = 0.8;
+  let sfxBus = null; // 効果音もここを通して、BGMと合わせて音量の上限をおさえる
 
   function makeImpulse(seconds, decay) {
     const rate = ac.sampleRate;
@@ -41,24 +42,36 @@
     // iPhone: マナーモードでも音が出るように「再生」用の音声として扱う (Safari 17 以降)
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* 非対応 */ }
     try {
-      ac = new (window.AudioContext || window.webkitAudioContext)();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      // スマホで音が途切れ (ノイズ) にくいよう、遅延より安定を優先する
+      try { ac = new AC({ latencyHint: 'playback' }); } catch (e) { ac = new AC(); }
     } catch (e) {
       return false;
     }
     master = ac.createGain();
     master.gain.value = 0;
-    // 音量を上げても割れないように、コンプレッサーを通してから出力する
-    const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -14;
-    comp.knee.value = 10;
-    comp.ratio.value = 6;
-    comp.attack.value = 0.01;
-    comp.release.value = 0.4;
-    master.connect(comp).connect(ac.destination);
+    // 出力: スマホのスピーカーがビリつく低音をカット → リミッターで上限をおさえる
+    const lowCut = ac.createBiquadFilter();
+    lowCut.type = 'highpass';
+    lowCut.frequency.value = 160;
+    lowCut.Q.value = 0.7;
+    const limiter = ac.createDynamicsCompressor();
+    limiter.threshold.value = -18;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.25;
+    const out = ac.createGain();
+    out.gain.value = 0.85;
+    master.connect(lowCut);
+    lowCut.connect(limiter).connect(out).connect(ac.destination);
+    sfxBus = ac.createGain();
+    sfxBus.gain.value = 1;
+    sfxBus.connect(lowCut);
 
     // 残響 (広いドームの響き)
     reverb = ac.createConvolver();
-    reverb.buffer = makeImpulse(5.5, 2.6);
+    reverb.buffer = makeImpulse(3, 2.4); // 長い残響はスマホでは処理が重いので短めに
     const wet = ac.createGain();
     wet.gain.value = 0.9;
     reverb.connect(wet).connect(master);
@@ -105,12 +118,12 @@
     const f = mtof(midi);
     const g = ac.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + 3.5);
+    g.gain.linearRampToValueAtTime(vol, t + 3.5); // 発振器を減らしたぶん少し大きめ
     g.gain.setValueAtTime(vol, t + dur - 1);
     g.gain.linearRampToValueAtTime(0, t + dur + 4);
     const pan = panNode((Math.random() - 0.5) * 0.8);
     g.connect(pan).connect(padBus);
-    [[-6, 'sine'], [6, 'triangle']].forEach(([detune, type]) => {
+    [[0, 'triangle']].forEach(([detune, type]) => {
       const o = ac.createOscillator();
       o.type = type;
       o.frequency.value = f;
@@ -127,8 +140,8 @@
     o.frequency.value = mtof(midi);
     const g = ac.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.18, t + 2.5);
-    g.gain.setValueAtTime(0.18, t + dur - 1);
+    g.gain.linearRampToValueAtTime(0.1, t + 2.5);
+    g.gain.setValueAtTime(0.1, t + dur - 1);
     g.gain.linearRampToValueAtTime(0, t + dur + 3);
     o.connect(g).connect(padFilter);
     o.start(t);
@@ -140,7 +153,7 @@
     const f = mtof(midi);
     const pan = panNode((Math.random() - 0.5) * 1.6);
     pan.connect(bellBus);
-    [[1, 1, 3.2], [2.0, 0.25, 1.6], [3.01, 0.08, 0.9], [4.2, 0.04, 0.5]].forEach(([mul, amp, decay]) => {
+    [[1, 1, 3.2], [2.0, 0.25, 1.6], [3.01, 0.08, 0.9]].forEach(([mul, amp, decay]) => {
       const o = ac.createOscillator();
       o.type = 'sine';
       o.frequency.value = f * mul;
@@ -159,8 +172,8 @@
     const ahead = now + 1.5;
     while (nextChordTime < ahead) {
       const ch = PROGRESSION[chordIndex % PROGRESSION.length];
-      ch.pad.forEach((m, k) => playPadNote(m, nextChordTime + k * 0.25, CHORD_SEC, 0.05));
-      playBass(ch.bass, nextChordTime, CHORD_SEC);
+      ch.pad.forEach((m, k) => playPadNote(m, nextChordTime + k * 0.25, CHORD_SEC, 0.07));
+      playBass(ch.bass + 12, nextChordTime, CHORD_SEC);
       chordIndex++;
       nextChordTime += CHORD_SEC;
     }
@@ -222,6 +235,9 @@
 
   window.BGM = {
     start, stop, isPlaying: () => playing, state: () => (ac ? ac.state : 'none'),
+    // 効果音用: BGMと同じ出力 (低音カット・リミッター) を使う
+    audio: () => (init() ? { ac, out: sfxBus } : null),
+    resume,
     _tick: () => schedule(), _setVolume: (v) => { VOLUME = v; },
   };
 })();

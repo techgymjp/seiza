@@ -89,7 +89,7 @@
       season: { 冬: '冬', 春: '春', 夏: '夏', 秋: '秋', 一年中: '一年中' },
     },
     en: {
-      appTitle: 'Constellation Finder',
+      appTitle: 'Star Finder',
       lead: 'Find the constellation in the night sky<br>above you right now, and trace its stars!',
       visibleHead: 'Constellations above the horizon now',
       noVisible: 'No constellations are above the horizon right now',
