@@ -143,6 +143,7 @@ body:not(.playing) #dayBanner { top: calc(env(safe-area-inset-top) + 10px); }
   #btnZoomIn, #btnZoomOut { display: none; }
 }
 .ctl[hidden] { display: none; }
+.ctl.off { opacity: 0.45; }
 body:not(.playing) .play-only { display: none; }
 
 /* ---------- オーバーレイ ---------- */

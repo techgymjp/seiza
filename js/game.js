@@ -117,6 +117,7 @@
   const saved = loadSave();
   state.difficulty = saved.difficulty || 'normal';
   state.muted = !!saved.muted;
+  state.bgm = saved.bgm !== false; // BGM は最初はオン
 
   function loadSave() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { return {}; }
@@ -1274,8 +1275,58 @@
     state.muted = !state.muted;
     writeSave({ muted: state.muted });
     $('btnMute').textContent = state.muted ? '🔇' : '🔊';
+
+  // BGM: ブラウザの自動再生制限があるため、最初にタップ・クリックしたときに鳴らし始める
+  function applyBgm() {
+    $('btnBgm').classList.toggle('active', state.bgm);
+    $('btnBgm').classList.toggle('off', !state.bgm);
+    $('btnBgm').title = state.bgm ? 'BGMをとめる' : 'BGMをながす';
+    if (!window.BGM) return;
+    if (state.bgm && audioUnlocked) window.BGM.start();
+    else window.BGM.stop();
+  }
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    applyBgm();
+  }
+  window.addEventListener('pointerdown', unlockAudio, true);
+  window.addEventListener('keydown', unlockAudio, true);
+  bind('btnBgm', () => {
+    audioUnlocked = true;
+    state.bgm = !state.bgm;
+    writeSave({ bgm: state.bgm });
+    applyBgm();
+  });
+  applyBgm();
   });
   $('btnMute').textContent = state.muted ? '🔇' : '🔊';
+
+  // BGM: ブラウザの自動再生制限があるため、最初にタップ・クリックしたときに鳴らし始める
+  function applyBgm() {
+    $('btnBgm').classList.toggle('active', state.bgm);
+    $('btnBgm').classList.toggle('off', !state.bgm);
+    $('btnBgm').title = state.bgm ? 'BGMをとめる' : 'BGMをながす';
+    if (!window.BGM) return;
+    if (state.bgm && audioUnlocked) window.BGM.start();
+    else window.BGM.stop();
+  }
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    applyBgm();
+  }
+  window.addEventListener('pointerdown', unlockAudio, true);
+  window.addEventListener('keydown', unlockAudio, true);
+  bind('btnBgm', () => {
+    audioUnlocked = true;
+    state.bgm = !state.bgm;
+    writeSave({ bgm: state.bgm });
+    applyBgm();
+  });
+  applyBgm();
 
   const presetSel = $('setPreset');
   PRESETS.forEach((pp, k) => {
