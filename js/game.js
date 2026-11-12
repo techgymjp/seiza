@@ -62,6 +62,95 @@
     });
   });
 
+  // 星座絵の座標系 (中心からの角度・度、天の北極が上) での星の位置
+  CONS.forEach((con) => {
+    const vs = con.stars.map((st) => {
+      const ra = st.ra * 15 * D2R, de = st.dec * D2R;
+      return [Math.cos(de) * Math.cos(ra), Math.cos(de) * Math.sin(ra), Math.sin(de)];
+    });
+    let c = [0, 0, 0];
+    vs.forEach((v) => { c[0] += v[0]; c[1] += v[1]; c[2] += v[2]; });
+    const cl = Math.hypot(c[0], c[1], c[2]);
+    c = c.map((x) => x / cl);
+    let u = [-c[2] * c[0], -c[2] * c[1], 1 - c[2] * c[2]];
+    const ul = Math.hypot(u[0], u[1], u[2]);
+    u = u.map((x) => x / ul);
+    const r = [c[1] * u[2] - c[2] * u[1], c[2] * u[0] - c[0] * u[2], c[0] * u[1] - c[1] * u[0]];
+    const d3 = (x, y) => x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
+    con.chartPts = vs.map((v) => {
+      const k = 2 / (1 + d3(v, c));
+      return [(k * d3(v, r)) / D2R, (-k * d3(v, u)) / D2R];
+    });
+    const fig = (window.CONSTELLATION_FIGURES || {})[con.id];
+    con.figure = fig ? fig.map((d) => ({ path: new Path2D(d), closed: /z\s*$/i.test(d) })) : null;
+    con.figureBox = fig ? pathBox(fig) : null;
+  });
+
+  // SVG パス文字列のおおよその範囲 (制御点を含む)
+  function pathBox(list) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+    list.forEach((d) => {
+      const re = /([MLQAZ])([^MLQAZ]*)/gi;
+      let m;
+      while ((m = re.exec(d))) {
+        const nums = (m[2].match(/-?\d*\.?\d+(?:e-?\d+)?/gi) || []).map(Number);
+        if (m[1].toUpperCase() === 'A') {
+          for (let i = 0; i + 6 < nums.length; i += 7) add(nums[i + 5], nums[i + 6]);
+        } else {
+          for (let i = 0; i + 1 < nums.length; i += 2) add(nums[i], nums[i + 1]);
+        }
+      }
+    });
+    return [x0, y0, x1, y1];
+  }
+
+  // 最小二乗でアフィン変換 (src -> dst) を求める: [A, B, C, D, E, F] で X = Ax + By + C, Y = Dx + Ey + F
+  function fitAffine(src, dst) {
+    if (src.length < 3) return null;
+    let sxx = 0, sxy = 0, syy = 0, sx = 0, sy = 0, n = src.length;
+    let bx = [0, 0, 0], by = [0, 0, 0];
+    for (let i = 0; i < n; i++) {
+      const [x, y] = src[i], [X, Y] = dst[i];
+      sxx += x * x; sxy += x * y; syy += y * y; sx += x; sy += y;
+      bx[0] += x * X; bx[1] += y * X; bx[2] += X;
+      by[0] += x * Y; by[1] += y * Y; by[2] += Y;
+    }
+    const M = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]];
+    const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+      - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const det = det3(M);
+    if (Math.abs(det) < 1e-9) return null;
+    const solve = (b) => [0, 1, 2].map((k) => {
+      const m = M.map((row, i) => row.map((v, j) => (j === k ? b[i] : v)));
+      return det3(m) / det;
+    });
+    const [A, B, C] = solve(bx), [D, E, F] = solve(by);
+    return [A, B, C, D, E, F];
+  }
+
+  // 星座絵を描く (dst: 各星の描画先座標, scale: キャンバスのピクセル倍率)
+  function drawFigurePaths(c2, con, dst, alpha, scale, lineCss) {
+    if (!con.figure || alpha <= 0) return;
+    const src = [], dd = [];
+    con.chartPts.forEach((p, k) => { if (dst[k]) { src.push(p); dd.push(dst[k]); } });
+    const T = fitAffine(src, dd);
+    if (!T) return;
+    const [A, B, C, D, E, F] = T;
+    const sc = Math.sqrt(Math.abs(A * E - B * D));
+    if (!(sc > 0)) return;
+    c2.save();
+    c2.setTransform(scale * A, scale * D, scale * B, scale * E, scale * C, scale * F);
+    c2.lineWidth = (lineCss || 1.5) / sc;
+    c2.lineJoin = 'round';
+    c2.lineCap = 'round';
+    c2.globalAlpha = alpha;
+    c2.strokeStyle = 'rgba(165, 205, 255, 0.85)';
+    c2.fillStyle = 'rgba(140, 185, 255, 0.12)';
+    con.figure.forEach((f) => { if (f.closed) c2.fill(f.path); c2.stroke(f.path); });
+    c2.restore();
+  }
+
   const N = catRa.length;
   const sinDec = new Float64Array(N), cosDec = new Float64Array(N);
   for (let i = 0; i < N; i++) { sinDec[i] = Math.sin(catDec[i] * D2R); cosDec[i] = Math.cos(catDec[i] * D2R); }
@@ -137,6 +226,7 @@
     effects: [],
     solvedCons: [], // このゲームで見つけた星座 (うっすら線を残す)
     hintArrowUntil: 0,
+    figureShownAt: {},
   };
 
   const saved = loadSave();
@@ -332,6 +422,7 @@
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
 
+    drawFigures();
     drawSolvedConstellations();
     drawRoundLines(t);
     drawSolarSystem();
@@ -345,6 +436,19 @@
     ctx.moveTo(scrX[i], scrY[i]);
     ctx.lineTo(scrX[j], scrY[j]);
     ctx.stroke();
+  }
+
+  function drawFigures() {
+    const now = performance.now();
+    state.solvedCons.forEach((con) => {
+      const t0 = state.figureShownAt[con.id] || 0;
+      const current = state.round && state.round.con === con;
+      // 正解直後は星座線のあとにふわっと浮かび上がり、次の問題からはうっすら残す
+      const k = Math.max(0, Math.min(1, (now - t0 - 900) / 1500));
+      const alpha = current ? k : 0.35;
+      const dst = con.catIdx.map((i) => (scrVis[i] ? [scrX[i], scrY[i]] : null));
+      drawFigurePaths(ctx, con, dst, alpha, DPR, 1.6);
+    });
   }
 
   function drawSolvedConstellations() {
@@ -620,11 +724,22 @@
       return [k * dot(v, rr), -k * dot(v, uu)];
     });
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    if (opts.figure && con.figureBox) {
+      const T = fitAffine(con.chartPts, pts);
+      if (T) {
+        const [bx0, by0, bx1, by1] = con.figureBox;
+        [[bx0, by0], [bx1, by0], [bx0, by1], [bx1, by1]].forEach(([x, y]) => {
+          xs.push(T[0] * x + T[1] * y + T[2]);
+          ys.push(T[3] * x + T[4] * y + T[5]);
+        });
+      }
+    }
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
     const pad = opts.pad || w * 0.14;
     const sc = Math.min((w - pad * 2) / Math.max(maxX - minX, 1e-6), (h - pad * 2) / Math.max(maxY - minY, 1e-6));
     const ox = w / 2 - ((minX + maxX) / 2) * sc, oy = h / 2 - ((minY + maxY) / 2) * sc;
     const P = pts.map((p) => [ox + p[0] * sc, oy + p[1] * sc]);
+    if (opts.figure) drawFigurePaths(c2, con, P, 0.9, 1, Math.max(1, w / 110));
     if (opts.lines !== false) {
       c2.strokeStyle = opts.lineColor || 'rgba(140, 210, 255, 0.75)';
       c2.lineWidth = Math.max(1, w / 70);
@@ -959,6 +1074,7 @@
     state.totalScore += score;
     state.history.push({ con: rd.con, score, time: elapsedSec(), misses: rd.misses, hints: rd.hints, gaveUp: rd.gaveUp });
     state.solvedCons.push(rd.con);
+    state.figureShownAt[rd.con.id] = performance.now();
     pointer.mode = null; pointer.lastStar = -1;
     if (!gaveUp) {
       const zukan = loadSave().zukan || {};
@@ -1011,7 +1127,7 @@
     $('solvedScore').textContent = rd.gaveUp
       ? '0 点'
       : `${score} 点（${Math.round(elapsedSec())}秒・ミス${rd.misses}・ヒント${rd.hints}）`;
-    drawShape($('solvedShape'), con, 'sky', { lineColor: 'rgba(255, 214, 120, 0.9)' });
+    drawShape($('solvedShape'), con, 'sky', { lineColor: 'rgba(255, 214, 120, 0.9)', figure: true, pad: 10 });
     $('btnNext').textContent = state.roundIndex + 1 < state.rounds.length ? 'つぎの星座へ' : '結果を見る';
     showOverlay('solved');
   }
@@ -1189,8 +1305,8 @@
       const card = document.createElement('div');
       card.className = 'zcard' + (found ? ' found' : '');
       const cv = document.createElement('canvas');
-      cv.width = 160; cv.height = 120;
-      drawShape(cv, con, 'chart', found ? { lineColor: 'rgba(255,214,120,0.85)' } : { lines: false, starColor: 'rgba(255,255,255,0.35)' });
+      cv.width = 240; cv.height = 180;
+      drawShape(cv, con, 'chart', found ? { lineColor: 'rgba(255,214,120,0.85)', figure: true, pad: 8 } : { lines: false, starColor: 'rgba(255,255,255,0.35)' });
       const name = document.createElement('div');
       name.className = 'zname';
       name.textContent = found ? con.name : '？？？';
@@ -1381,5 +1497,5 @@
   requestAnimationFrame(loop);
 
   // テスト・デバッグ用
-  window.__seiza = { state, CONS, scrX, scrY, scrVis, setLocation, startGame, centerOn, visibleConstellations, refreshTitle };
+  window.__seiza = { state, CONS, drawShape, scrX, scrY, scrVis, setLocation, startGame, centerOn, visibleConstellations, refreshTitle };
 })();
