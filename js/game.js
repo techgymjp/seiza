@@ -212,9 +212,7 @@
     locStatus: '位置情報を取得しています…',
     timeOffset: 0, // 実時刻からのずれ (ms)。0 なら現在時刻
     view: { az: 180, alt: 40, fov: 90 },
-    follow: false,
-    device: null, // {az, alt} スマホの向き
-    deviceSeen: false,
+    deviceHeading: null, // スマホのコンパスの方角
     difficulty: 'normal',
     screen: 'title', // title | play | solved | result
     rounds: [],
@@ -863,7 +861,6 @@
       traceAlong(pointer.x, pointer.y, x, y);
     } else if (pointer.mode === 'pan') {
       const k = degPerPx();
-      setFollow(false);
       state.view.az = A.norm360(state.view.az - (x - pointer.x) * k);
       state.view.alt = Math.max(-10, Math.min(85, state.view.alt + (y - pointer.y) * k));
     }
@@ -887,10 +884,10 @@
 
   window.addEventListener('keydown', (e) => {
     const step = 5;
-    if (e.key === 'ArrowLeft') { setFollow(false); state.view.az = A.norm360(state.view.az - step); }
-    else if (e.key === 'ArrowRight') { setFollow(false); state.view.az = A.norm360(state.view.az + step); }
-    else if (e.key === 'ArrowUp') { setFollow(false); state.view.alt = Math.min(85, state.view.alt + step); }
-    else if (e.key === 'ArrowDown') { setFollow(false); state.view.alt = Math.max(-10, state.view.alt - step); }
+    if (e.key === 'ArrowLeft') { state.view.az = A.norm360(state.view.az - step); }
+    else if (e.key === 'ArrowRight') { state.view.az = A.norm360(state.view.az + step); }
+    else if (e.key === 'ArrowUp') { state.view.alt = Math.min(85, state.view.alt + step); }
+    else if (e.key === 'ArrowDown') { state.view.alt = Math.max(-10, state.view.alt - step); }
     else if (e.key === '+' || e.key === '=') setFov(state.view.fov / 1.15);
     else if (e.key === '-') setFov(state.view.fov * 1.15);
   });
@@ -900,7 +897,7 @@
   }
 
   // ---------------------------------------------------------------
-  // スマホの向き (コンパス + 傾き)
+  // スマホのコンパス (スタートしたときの方角を表示の向きにする)
   // ---------------------------------------------------------------
   let iosHeadingOffset = null;
 
@@ -917,19 +914,11 @@
     }
     const a = alpha * D2R, b = e.beta * D2R, g = e.gamma * D2R;
     const cA = Math.cos(a), sA = Math.sin(a), cB = Math.cos(b), sB = Math.sin(b), cG = Math.cos(g), sG = Math.sin(g);
-    // 端末の背面 (カメラ側) が向いている方向
+    // 端末の背面 (カメラ側) が向いている方向。ほぼ水平に持っているときは端末の上端の方向を使う
     const back = [-(cA * sG + cG * sA * sB), -(sA * sG - cA * cG * sB), -(cB * cG)];
-    const aa = A.enuToAltAz(back);
-    const first = !state.deviceSeen;
-    state.device = { az: aa.az, alt: aa.alt };
-    state.deviceSeen = true;
-    if (first) {
-      // 最初は端末の向いている方角をデフォルトにする
-      state.view.az = aa.az;
-      state.view.alt = Math.max(-10, Math.min(85, aa.alt));
-      setFollow(true);
-      $('btnFollow').hidden = false;
-    }
+    const top = [-cB * sA, cA * cB, sB];
+    const dir = Math.abs(back[2]) < 0.94 ? back : top;
+    state.deviceHeading = A.norm360(Math.atan2(dir[0], dir[1]) / D2R);
   }
 
   function angleDiff(a, b) {
@@ -953,17 +942,17 @@
     } catch (e) { /* 拒否されても手動で遊べる */ }
   }
 
-  function setFollow(on) {
-    state.follow = on && state.deviceSeen;
-    $('btnFollow').classList.toggle('active', state.follow);
-  }
-
-  function updateFollow() {
-    if (!state.follow || !state.device || pointer.mode) return;
-    const k = 0.15;
-    state.view.az = A.norm360(state.view.az + angleDiff(state.device.az, state.view.az) * k);
-    const targetAlt = Math.max(-10, Math.min(85, state.device.alt));
-    state.view.alt += (targetAlt - state.view.alt) * k;
+  // スタート時にコンパスの方角を読み取り、その方角の空を表示する (追従はしない)
+  async function applyStartHeading() {
+    await requestOrientationPermission();
+    const t0 = performance.now();
+    while (state.deviceHeading == null && performance.now() - t0 < 700) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    if (state.deviceHeading != null) {
+      state.view.az = state.deviceHeading;
+      state.view.alt = 40;
+    }
   }
 
   // ---------------------------------------------------------------
@@ -1089,7 +1078,6 @@
   function centerOn(con) {
     const v = conCenterEnu(con, sky.lst);
     const aa = A.enuToAltAz(v);
-    setFollow(false);
     // 正解カードに隠れないよう、星座が画面の上寄りに来るようにする
     const shift = (state.view.fov * H / Math.max(W, H)) * 0.2;
     animateView(aa.az, Math.max(-10, Math.min(80, aa.alt - shift)));
@@ -1355,7 +1343,7 @@
 
   bind('btnStart', async () => {
     sound.unlock();
-    await requestOrientationPermission();
+    await applyStartHeading();
     startGame();
   });
   document.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => {
@@ -1366,13 +1354,9 @@
   bind('btnHint', useHint);
   bind('btnGiveUp', giveUp);
   bind('btnNext', nextRound);
-  bind('btnAgain', () => { sound.unlock(); startGame(); });
+  bind('btnAgain', async () => { sound.unlock(); await applyStartHeading(); startGame(); });
   bind('btnToTitle', quitToTitle);
   bind('btnQuit', quitToTitle);
-  bind('btnFollow', async () => {
-    await requestOrientationPermission();
-    setFollow(!state.follow);
-  });
   bind('btnZoomIn', () => setFov(state.view.fov / 1.25));
   bind('btnZoomOut', () => setFov(state.view.fov * 1.25));
   bind('btnSettings', openSettings);
@@ -1481,7 +1465,6 @@
 
   function loop(t) {
     updateViewAnim();
-    updateFollow();
     render(t);
     updateHud(t);
     requestAnimationFrame(loop);
