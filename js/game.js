@@ -88,6 +88,31 @@
   const starRGB = [];
   for (let i = 0; i < N; i++) starRGB.push(bvColor(catBv[i]).join(','));
 
+  // 星の光のにじみ画像を色ごとに用意しておく
+  const BV_BUCKETS = [-0.2, 0.1, 0.4, 0.7, 1.0, 1.4];
+  const starBucket = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    let b = 0, bd = 9;
+    BV_BUCKETS.forEach((v, k) => { const dd = Math.abs(v - catBv[i]); if (dd < bd) { bd = dd; b = k; } });
+    starBucket[i] = b;
+  }
+  const glowSprites = BV_BUCKETS.map((bv) => {
+    const size = 64;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = size;
+    const g = cv.getContext('2d');
+    const rgb = bvColor(bv).join(',');
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.08, `rgba(${rgb},0.95)`);
+    grad.addColorStop(0.22, `rgba(${rgb},0.35)`);
+    grad.addColorStop(0.5, `rgba(${rgb},0.08)`);
+    grad.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+    return cv;
+  });
+
   // ---------------------------------------------------------------
   // 状態
   // ---------------------------------------------------------------
@@ -239,23 +264,9 @@
   // ---------------------------------------------------------------
   const tmp = [0, 0];
 
-  function skyColors(sunAlt) {
-    // 夜 -> 薄明 -> 昼
-    const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-    const night = [[4, 8, 26], [14, 24, 56]];
-    const twi = [[22, 36, 84], [92, 84, 130]];
-    const day = [[34, 70, 124], [96, 140, 186]];
-    let top, bot;
-    if (sunAlt < -18) { [top, bot] = night; }
-    else if (sunAlt < -6) { const t = (sunAlt + 18) / 12; top = lerp(night[0], twi[0], t); bot = lerp(night[1], twi[1], t); }
-    else if (sunAlt < 2) { const t = (sunAlt + 6) / 8; top = lerp(twi[0], day[0], t); bot = lerp(twi[1], day[1], t); }
-    else { [top, bot] = day; }
-    return { top: `rgb(${top})`, bot: `rgb(${bot})` };
-  }
-
   function starRadius(mag, limit) {
     const zoom = Math.pow(90 / state.view.fov, 0.35);
-    return Math.max(0.55, Math.min(4.6, (0.65 + (limit - mag) * 0.62) * zoom));
+    return Math.max(0.7, Math.min(5, (0.8 + (limit - mag) * 0.65) * zoom));
   }
 
   function render(t) {
@@ -265,13 +276,11 @@
     const limit = diff.magLimit;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-    const sunAlt = sky.sun.alt;
-    const col = skyColors(sunAlt);
+    const col = { top: '#000003', bot: '#050b1e' }; // 空はいつも夜の黒
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, col.top); g.addColorStop(1, col.bot);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
-    const dayDim = sunAlt > -6 ? 0.9 : 1;
 
     // 恒星
     const lst = sky.lst;
@@ -279,6 +288,7 @@
     const sp = Math.sin(p), cp = Math.cos(p);
     const c = basis.c, u = basis.u, r = basis.r, S = basis.S, cx = basis.cx, cy = basis.cy;
     const v = [0, 0, 0];
+    ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < N; i++) {
       scrVis[i] = 0;
       if (catMag[i] > limit && !starOwner.has(i)) continue;
@@ -297,21 +307,30 @@
       const mag = Math.min(catMag[i], limit);
       const rad = starRadius(mag, limit);
       scrX[i] = x; scrY[i] = y; scrR[i] = rad; scrVis[i] = 1;
-      let alpha = mag < 3 ? 0.85 + 0.15 * Math.sin(t / 400 + twinkle[i]) : 0.75;
-      alpha *= dayDim;
+      // またたき (明るい星ほどはっきり)
+      let alpha = 0.82 + 0.18 * Math.sin(t / (300 + (i % 7) * 60) + twinkle[i]);
       // 地平線近くは減光
       if (v[2] < 0.08) alpha *= 0.4 + 0.6 * Math.max(0, v[2] / 0.08);
-      if (rad > 2.2) {
-        ctx.fillStyle = `rgba(${starRGB[i]},${alpha * 0.18})`;
-        ctx.beginPath(); ctx.arc(x, y, rad * 2.6, 0, Math.PI * 2); ctx.fill();
+      // 光のにじみ (加算合成で光って見える)
+      const sprite = glowSprites[starBucket[i]];
+      const gs = rad * 9 + 4;
+      ctx.globalAlpha = alpha * Math.min(1, 0.45 + rad * 0.2);
+      ctx.drawImage(sprite, x - gs / 2, y - gs / 2, gs, gs);
+      // 明るい星には光条
+      if (rad > 2.6) {
+        const len = rad * 6;
+        ctx.globalAlpha = alpha * 0.35;
+        ctx.fillStyle = `rgb(${starRGB[i]})`;
+        ctx.fillRect(x - len, y - 0.5, len * 2, 1);
+        ctx.fillRect(x - 0.5, y - len, 1, len * 2);
       }
-      ctx.fillStyle = `rgba(${starRGB[i]},${alpha})`;
-      if (rad < 1.1) {
-        ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-      } else {
-        ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
-      }
+      // 芯 (白く明るく)
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x, y, Math.max(0.6, rad * 0.55), 0, Math.PI * 2); ctx.fill();
     }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
 
     drawSolvedConstellations();
     drawRoundLines(t);
@@ -1085,7 +1104,7 @@
     const banner = $('dayBanner');
     if (sunAlt > -6) {
       banner.hidden = false;
-      banner.textContent = sunAlt > 0 ? '☀️ いまは昼間です。本当は星は見えませんが、星の位置を表示しています' : '🌇 薄明るい時間です。明るい星だけが見えるころです';
+      banner.textContent = sunAlt > 0 ? '☀️ 昼間なので、本当は星は見えません' : '🌇 薄明るく、明るい星だけが見えるころです';
     } else {
       banner.hidden = true;
     }
