@@ -1433,35 +1433,13 @@
     state.muted = !state.muted;
     writeSave({ muted: state.muted });
     $('btnMute').textContent = state.muted ? '🔇' : '🔊';
-
-  // BGM: ブラウザの自動再生制限があるため、最初にタップ・クリックしたときに鳴らし始める
-  function applyBgm() {
-    $('btnBgm').classList.toggle('active', state.bgm);
-    $('btnBgm').classList.toggle('off', !state.bgm);
-    $('btnBgm').title = state.bgm ? 'BGMをとめる' : 'BGMをながす';
-    if (!window.BGM) return;
-    if (state.bgm && audioUnlocked) window.BGM.start();
-    else window.BGM.stop();
-  }
-  let audioUnlocked = false;
-  function unlockAudio() {
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    applyBgm();
-  }
-  window.addEventListener('pointerdown', unlockAudio, true);
-  window.addEventListener('keydown', unlockAudio, true);
-  bind('btnBgm', () => {
-    audioUnlocked = true;
-    state.bgm = !state.bgm;
-    writeSave({ bgm: state.bgm });
-    applyBgm();
-  });
-  applyBgm();
   });
   $('btnMute').textContent = state.muted ? '🔇' : '🔊';
 
-  // BGM: ブラウザの自動再生制限があるため、最初にタップ・クリックしたときに鳴らし始める
+  // BGM: ブラウザの自動再生制限があるため、タップ・クリックしたときに鳴らし始める。
+  // スマホでは指が触れた瞬間 (pointerdown) は音を出せる操作とみなされないので、
+  // 指を離したとき・クリック・キー入力のたびに再開を試みる。
+  let audioUnlocked = false;
   function applyBgm() {
     $('btnBgm').classList.toggle('active', state.bgm);
     $('btnBgm').classList.toggle('off', !state.bgm);
@@ -1470,14 +1448,14 @@
     if (state.bgm && audioUnlocked) window.BGM.start();
     else window.BGM.stop();
   }
-  let audioUnlocked = false;
-  function unlockAudio() {
-    if (audioUnlocked) return;
+  function onUserGesture() {
     audioUnlocked = true;
-    applyBgm();
+    sound.unlock();
+    if (state.bgm && window.BGM) window.BGM.start();
   }
-  window.addEventListener('pointerdown', unlockAudio, true);
-  window.addEventListener('keydown', unlockAudio, true);
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach((type) => {
+    window.addEventListener(type, onUserGesture, true);
+  });
   bind('btnBgm', () => {
     audioUnlocked = true;
     state.bgm = !state.bgm;

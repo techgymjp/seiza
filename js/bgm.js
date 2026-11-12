@@ -38,6 +38,8 @@
 
   function init() {
     if (ac) return true;
+    // iPhone: マナーモードでも音が出るように「再生」用の音声として扱う (Safari 17 以降)
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* 非対応 */ }
     try {
       ac = new (window.AudioContext || window.webkitAudioContext)();
     } catch (e) {
@@ -169,10 +171,17 @@
     }
   }
 
+  function resume() {
+    if (ac && ac.state !== 'running' && !document.hidden) {
+      const p = ac.resume();
+      if (p && p.catch) p.catch(() => {});
+    }
+  }
+
   function start() {
-    if (playing) return;
+    if (playing) { resume(); return; }
     if (!init()) return;
-    if (ac.state === 'suspended') ac.resume();
+    resume();
     playing = true;
     const now = ac.currentTime;
     nextChordTime = Math.max(nextChordTime, now + 0.1);
@@ -204,5 +213,5 @@
     else if (playing) ac.resume();
   });
 
-  window.BGM = { start, stop, isPlaying: () => playing };
+  window.BGM = { start, stop, isPlaying: () => playing, state: () => (ac ? ac.state : 'none') };
 })();
