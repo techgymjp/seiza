@@ -1216,14 +1216,6 @@
     $('infoLoc').textContent = `📍${state.locLabel}（${latS}）`;
     $('infoTime').textContent = `🕘${timeS}`;
     $('infoDir').textContent = `🧭${A.dirName(state.view.az)}・高さ${Math.round(state.view.alt)}°`;
-    const sunAlt = sky.sun ? sky.sun.alt : -90;
-    const banner = $('dayBanner');
-    if (sunAlt > -6) {
-      banner.hidden = false;
-      banner.textContent = sunAlt > 0 ? '☀️ 昼間なので、本当は星は見えません' : '🌇 薄明るく、明るい星だけが見えるころです';
-    } else {
-      banner.hidden = true;
-    }
   }
 
   // ---------------------------------------------------------------

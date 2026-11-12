@@ -76,7 +76,7 @@ body.playing #hud { display: flex; }
 }
 #thumb { width: 116px; height: 93px; flex: none; }
 #thumb[hidden] { display: none; }
-.task-text { min-width: 0; }
+.task-text { min-width: 0; margin-left: auto; text-align: right; }
 #taskName { color: var(--gold); font-weight: bold; font-size: 1.5rem; line-height: 1.25; }
 .task-title { font-weight: bold; font-size: 0.95rem; line-height: 1.35; margin-top: 2px; }
 .task-sub { font-size: 0.9rem; color: var(--muted); margin-top: 2px; }
@@ -95,20 +95,6 @@ body.playing #hud { display: flex; }
 #timerLabel { font-size: 1.05rem; color: var(--text); font-variant-numeric: tabular-nums; }
 #scoreLabel { color: var(--gold); }
 
-#dayBanner {
-  position: fixed;
-  left: 50%;
-  top: calc(env(safe-area-inset-top) + 90px);
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 999px;
-  padding: 4px 14px;
-  font-size: 0.78rem;
-  max-width: calc(100% - 32px);
-  text-align: center;
-  pointer-events: none;
-}
-body:not(.playing) #dayBanner { top: calc(env(safe-area-inset-top) + 10px); }
 
 /* ---------- 下部 ---------- */
 #bottom {
