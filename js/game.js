@@ -28,6 +28,8 @@
     { label: 'ニューヨーク', lat: 40.713, lon: -74.006 },
   ];
   const STORAGE_KEY = 'seiza-mitsuke-v1';
+  // シェアするときのURL (ゲームを紹介する記事)
+  const SHARE_URL = 'https://techgym.jp/column/claude-code-game-seiza/';
 
   // ---------------------------------------------------------------
   // 恒星カタログと星座の対応づけ
@@ -1244,7 +1246,7 @@
   async function shareResult() {
     const found = state.history.filter((h) => !h.gaveUp).map((h) => T.conName(h.con));
     const text = tr('shareText', { n: state.totalScore, list: found.length ? found.join(tr('listSep')) : tr('shareNone') });
-    const url = location.origin + location.pathname;
+    const url = SHARE_URL;
     const status = $('shareStatus');
     status.textContent = '';
     if (navigator.share) {
