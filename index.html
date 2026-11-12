@@ -27,6 +27,28 @@
     </div>
   </header>
 
+  <!-- 右上のコンパス (いま見ている方角) -->
+  <div id="compass" aria-label="見ている方角">
+    <svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true">
+      <circle cx="50" cy="50" r="47" class="c-ring"/>
+      <g id="compassDial">
+        <g class="c-ticks">
+          <line x1="50" y1="6" x2="50" y2="14"/><line x1="94" y1="50" x2="86" y2="50"/>
+          <line x1="50" y1="94" x2="50" y2="86"/><line x1="6" y1="50" x2="14" y2="50"/>
+          <line x1="81.1" y1="18.9" x2="77.4" y2="22.6"/><line x1="81.1" y1="81.1" x2="77.4" y2="77.4"/>
+          <line x1="18.9" y1="81.1" x2="22.6" y2="77.4"/><line x1="18.9" y1="18.9" x2="22.6" y2="22.6"/>
+        </g>
+        <text x="50" y="27" class="c-n">北</text>
+        <text x="75" y="54" class="c-d">東</text>
+        <text x="50" y="80" class="c-d">南</text>
+        <text x="25" y="54" class="c-d">西</text>
+      </g>
+      <path d="M50 2 L55 11 L45 11 Z" class="c-pointer"/>
+      <circle cx="50" cy="50" r="3" class="c-pointer"/>
+    </svg>
+    <div id="compassLabel"></div>
+  </div>
+
   <footer id="bottom">
     <div id="info">
       <span id="infoLoc"></span>
@@ -78,7 +100,8 @@
           <li>パソコンでは、なにもないところをドラッグすると空を見回せます。ホイールで拡大縮小。</li>
           <li>スマホでは、スタートしたときに向いている方角の空から始まります。</li>
           <li>星空・太陽・月・惑星は、いまの時刻と場所にあわせて計算しています。</li>
-          <li>ちがう星をなぞるとミス。💡ヒントで星座の方向と星を教えてくれます。🏳️でこたえを見られます。</li>
+          <li>ちがう星をなぞるとミス。💡ヒントを押すと、その星座のところまで空が動いて、まだ見つけていない星が光ります。🏳️でこたえを見られます。</li>
+          <li>右上のコンパスで、いま見ている方角がわかります。</li>
         </ul>
       </details>
     </div>

@@ -655,7 +655,7 @@
     state.effects = state.effects.filter((e) => now - e.t < e.dur);
     state.effects.forEach((e) => {
       const k = (now - e.t) / e.dur;
-      if (!scrVis[e.idx]) return;
+      if (k < 0 || !scrVis[e.idx]) return;
       const x = scrX[e.idx], y = scrY[e.idx];
       if (e.kind === 'miss') {
         ctx.strokeStyle = `rgba(255, 90, 90, ${1 - k})`;
@@ -668,8 +668,8 @@
       } else if (e.kind === 'hint') {
         const a = 0.5 + 0.5 * Math.sin(k * Math.PI * 8);
         ctx.strokeStyle = `rgba(255, 230, 120, ${a})`;
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.arc(x, y, 18 + 4 * a, 0, Math.PI * 2); ctx.stroke();
       }
     });
   }
@@ -1131,8 +1131,11 @@
   }
 
   let viewAnim = null;
-  function animateView(az, alt) {
-    viewAnim = { fromAz: state.view.az, fromAlt: state.view.alt, toAz: az, toAlt: alt, t0: performance.now(), dur: 700 };
+  function animateView(az, alt, fov) {
+    viewAnim = {
+      fromAz: state.view.az, fromAlt: state.view.alt, toAz: az, toAlt: alt,
+      fromFov: state.view.fov, toFov: fov || state.view.fov, t0: performance.now(), dur: 700,
+    };
   }
   function updateViewAnim() {
     if (!viewAnim) return;
@@ -1140,6 +1143,7 @@
     const e = 1 - Math.pow(1 - k, 3);
     state.view.az = A.norm360(viewAnim.fromAz + angleDiff(viewAnim.toAz, viewAnim.fromAz) * e);
     state.view.alt = viewAnim.fromAlt + (viewAnim.toAlt - viewAnim.fromAlt) * e;
+    state.view.fov = viewAnim.fromFov + (viewAnim.toFov - viewAnim.fromFov) * e;
     if (k >= 1) viewAnim = null;
   }
 
@@ -1200,11 +1204,20 @@
     const rd = state.round;
     if (!rd || rd.solvedAt) return;
     rd.hints++;
-    // 画面の外なら矢印で方向を教える
-    state.hintArrowUntil = performance.now() + 3500;
+    // 星座が画面の真ん中に来るように空を動かす (必要なら全体が入るまで広げる)
+    const lst = sky.lst;
+    const cv = conCenterEnu(rd.con, lst);
+    let radius = 0;
+    rd.con.catIdx.forEach((i) => {
+      const v = starEnu(i, lst);
+      radius = Math.max(radius, Math.acos(Math.max(-1, Math.min(1, dot(v, cv)))) / D2R);
+    });
+    const needFov = Math.min(150, ((2 * radius) / 0.7) * (Math.max(W, H) / Math.min(W, H)));
+    const aa = A.enuToAltAz(cv);
+    animateView(aa.az, Math.max(-10, Math.min(85, aa.alt)), Math.max(state.view.fov, needFov));
     // まだ見つけていない星を1つ光らせる (いちばん明るい星から)
     const rest = rd.con.catIdx.filter((i) => !rd.found.has(i)).sort((a, b) => catMag[a] - catMag[b]);
-    if (rest.length) state.effects.push({ idx: rest[0], kind: 'hint', t: performance.now(), dur: 3000 });
+    if (rest.length) state.effects.push({ idx: rest[0], kind: 'hint', t: performance.now() + 500, dur: 3500 });
     updateTask();
   }
 
@@ -1238,6 +1251,20 @@
     const d = new Date(ms);
     const p = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  // 右上のコンパス: いま見ている方角 (画面中央の方角) を示す
+  let lastCompassAz = null;
+  function updateCompass() {
+    const az = state.view.az;
+    if (lastCompassAz !== null && Math.abs(angleDiff(az, lastCompassAz)) < 0.2) return;
+    lastCompassAz = az;
+    $('compassDial').setAttribute('transform', `rotate(${(-az).toFixed(1)} 50 50)`);
+    // 文字は回さずに立てたままにする
+    document.querySelectorAll('#compassDial text').forEach((el) => {
+      el.setAttribute('transform', `rotate(${az.toFixed(1)} ${el.getAttribute('x')} ${el.getAttribute('y')})`);
+    });
+    $('compassLabel').textContent = `${A.dirName(az)} ${Math.round(az)}°`;
   }
 
   let lastHud = 0;
@@ -1377,9 +1404,14 @@
     const scale = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568, 1760, 2093, 2349, 2637, 3136];
     return {
       unlock: ensure,
-      note: (n) => tone(scale[Math.min(n - 1, scale.length - 1)], 0.5, 'sine', 0.14),
-      miss: () => tone(150, 0.2, 'square', 0.05),
-      fanfare: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.6, 'triangle', 0.1, i * 0.11)),
+      note: (n) => tone(scale[Math.min(n - 1, scale.length - 1)], 0.5, 'sine', 0.2),
+      // スタート: キラキラと上がっていく音
+      start: () => {
+        [659, 784, 988, 1319, 1568, 1976].forEach((f, i) => tone(f, 0.9, 'sine', 0.13, i * 0.07));
+        tone(2637, 1.2, 'sine', 0.05, 0.42);
+      },
+      miss: () => tone(150, 0.2, 'square', 0.07),
+      fanfare: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.6, 'triangle', 0.15, i * 0.11)),
     };
   })();
 
@@ -1390,6 +1422,7 @@
 
   bind('btnStart', async () => {
     sound.unlock();
+    sound.start();
     await applyStartHeading();
     startGame();
   });
@@ -1401,7 +1434,7 @@
   bind('btnHint', useHint);
   bind('btnGiveUp', giveUp);
   bind('btnNext', nextRound);
-  bind('btnAgain', async () => { sound.unlock(); await applyStartHeading(); startGame(); });
+  bind('btnAgain', async () => { sound.unlock(); sound.start(); await applyStartHeading(); startGame(); });
   bind('btnToTitle', quitToTitle);
   bind('btnQuit', quitToTitle);
   bind('btnZoomIn', () => setFov(state.view.fov / 1.25));
@@ -1491,6 +1524,7 @@
   function loop(t) {
     updateViewAnim();
     render(t);
+    updateCompass();
     updateHud(t);
     requestAnimationFrame(loop);
   }

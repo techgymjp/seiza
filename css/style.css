@@ -99,6 +99,34 @@ body.playing #hud { display: flex; }
 #scoreLabel { color: var(--gold); }
 
 
+/* ---------- コンパス (右上) ---------- */
+#compass {
+  position: fixed;
+  right: 10px;
+  top: calc(env(safe-area-inset-top) + 10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+body.playing #compass { top: calc(env(safe-area-inset-top) + 102px); }
+#compass svg { display: block; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6)); }
+#compass .c-ring { fill: var(--panel); stroke: var(--line); stroke-width: 2; }
+#compass .c-ticks line { stroke: rgba(200, 220, 255, 0.55); stroke-width: 2; }
+#compass text { font-family: inherit; text-anchor: middle; dominant-baseline: middle; font-size: 13px; }
+#compass .c-n { fill: #ff8f8f; font-weight: bold; font-size: 15px; }
+#compass .c-d { fill: rgba(225, 235, 255, 0.85); }
+#compass .c-pointer { fill: var(--gold); }
+#compassLabel {
+  font-size: 0.72rem;
+  color: var(--text);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
 /* ---------- 下部 ---------- */
 #bottom {
   position: fixed;

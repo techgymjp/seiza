@@ -23,7 +23,7 @@
   let timer = null;
   let playing = false;
   let nextChordTime = 0, chordIndex = 0, nextBellTime = 0;
-  const VOLUME = 0.3;
+  let VOLUME = 1.3;
 
   function makeImpulse(seconds, decay) {
     const rate = ac.sampleRate;
@@ -47,7 +47,14 @@
     }
     master = ac.createGain();
     master.gain.value = 0;
-    master.connect(ac.destination);
+    // 音量を上げても割れないように、コンプレッサーを通してから出力する
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -14;
+    comp.knee.value = 10;
+    comp.ratio.value = 6;
+    comp.attack.value = 0.01;
+    comp.release.value = 0.4;
+    master.connect(comp).connect(ac.destination);
 
     // 残響 (広いドームの響き)
     reverb = ac.createConvolver();
@@ -213,5 +220,8 @@
     else if (playing) ac.resume();
   });
 
-  window.BGM = { start, stop, isPlaying: () => playing, state: () => (ac ? ac.state : 'none') };
+  window.BGM = {
+    start, stop, isPlaying: () => playing, state: () => (ac ? ac.state : 'none'),
+    _tick: () => schedule(), _setVolume: (v) => { VOLUME = v; },
+  };
 })();
