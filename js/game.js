@@ -737,7 +737,7 @@
     const sc = Math.min((w - pad * 2) / Math.max(maxX - minX, 1e-6), (h - pad * 2) / Math.max(maxY - minY, 1e-6));
     const ox = w / 2 - ((minX + maxX) / 2) * sc, oy = h / 2 - ((minY + maxY) / 2) * sc;
     const P = pts.map((p) => [ox + p[0] * sc, oy + p[1] * sc]);
-    if (opts.figure) drawFigurePaths(c2, con, P, 0.9, 1, Math.max(1, w / 110));
+    if (opts.figure) drawFigurePaths(c2, con, P, opts.figureAlpha || 0.9, 1, Math.max(1, w / 110));
     if (opts.lines !== false) {
       c2.strokeStyle = opts.lineColor || 'rgba(140, 210, 255, 0.75)';
       c2.lineWidth = Math.max(1, w / 70);
@@ -1070,11 +1070,14 @@
     };
     state.screen = 'play';
     state.hintArrowUntil = 0;
-    $('taskName').textContent = con.name;
+    // 「おおぐま座（北斗七星）」はかっこの前で改行する
+    $('taskName').textContent = con.name.replace('（', '\n（');
+    $('taskName').classList.toggle('long', con.name.replace(/（.*）/, '').length > 5);
     const diff = DIFFICULTY[state.difficulty];
     const thumb = $('thumb');
     thumb.hidden = !diff.showShape;
-    if (diff.showShape) drawShape(thumb, con, 'sky', { lines: diff.showLines });
+    // 星座イラストを背景に薄く重ねる
+    if (diff.showShape) drawShape(thumb, con, 'sky', { lines: diff.showLines, figure: true, figureAlpha: 0.75, pad: 6 });
     updateTask();
   }
 
