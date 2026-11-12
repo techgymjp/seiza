@@ -32,14 +32,11 @@ python3 -m http.server 8000
 
 ## GitHub Pages で公開する
 
-`.github/workflows/pages.yml` で、プッシュするたびに自動で GitHub Pages にデプロイします。最初に一度だけ次の設定が必要です。
+**Settings → Pages** で「Deploy from a branch」の `main` ブランチ（`/ (root)`）を公開元にしています。`main` にプッシュすると数分で反映されます。
 
-1. GitHub のリポジトリで **Settings → Pages** を開く
-2. **Build and deployment → Source** を **GitHub Actions** にする
-3. **Actions** タブで「GitHub Pages にデプロイ」を実行する（または何かプッシュする）
+公開 URL: https://techgymjp.github.io/seiza/
 
-公開 URL は `https://<ユーザー名またはOrg名>.github.io/<リポジトリ名>/` です（例: `https://techgymjp.github.io/seiza/`）。
-GitHub Pages は HTTPS で配信されるため、位置情報やスマホのコンパスもそのまま使えます。
+HTTPS で配信されるため、位置情報やスマホのコンパスもそのまま使えます。`.nojekyll` は Jekyll の変換を止めて、ファイルをそのまま配信するためのものです。
 
 ## ファイル構成
 
