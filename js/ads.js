@@ -13,7 +13,7 @@ window.Ads = (() => {
       },
       // 本番の広告ユニット(AdMob の Android アプリ「星座みつけ」)。届くまでは空にしておく(本番ビルドでは出さない)
       production: {
-        interstitial: '',
+        interstitial: 'ca-app-pub-6411535997477460/8172123072',
         rewarded: '',
         banner: 'ca-app-pub-6411535997477460/5482234767',
       },
