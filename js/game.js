@@ -1215,7 +1215,39 @@
       li.innerHTML = `<span>${T.conName(h.con)}</span><span>${h.gaveUp ? tr('gaveUp') : tr('points', { n: h.score })}</span>`;
       list.appendChild(li);
     });
+    $('shareStatus').textContent = '';
     showOverlay('result');
+  }
+
+  // 結果のシェア: スマホは共有メニュー、使えなければ文章をコピー
+  async function shareResult() {
+    const found = state.history.filter((h) => !h.gaveUp).map((h) => T.conName(h.con));
+    const text = tr('shareText', { n: state.totalScore, list: found.length ? found.join(tr('listSep')) : tr('shareNone') });
+    const url = location.origin + location.pathname;
+    const status = $('shareStatus');
+    status.textContent = '';
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: tr('appTitle'), text, url });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // 自分でキャンセルした
+      }
+    }
+    const all = text + '\n' + url;
+    try {
+      await navigator.clipboard.writeText(all);
+      status.textContent = tr('copied');
+    } catch (e) {
+      // 古いブラウザ向け
+      const ta = document.createElement('textarea');
+      ta.value = all;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand && document.execCommand('copy');
+      ta.remove();
+      status.textContent = ok ? tr('copied') : tr('copyFail');
+    }
   }
 
   function useHint() {
@@ -1466,6 +1498,7 @@
   bind('btnNext', nextRound);
   bind('btnAgain', async () => { sound.unlock(); sound.start(); await applyStartHeading(); startGame(); });
   bind('btnToTitle', quitToTitle);
+  bind('btnShare', shareResult);
   bind('btnQuit', quitToTitle);
   bind('btnZoomIn', () => setFov(state.view.fov / 1.25));
   bind('btnZoomOut', () => setFov(state.view.fov * 1.25));
