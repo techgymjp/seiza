@@ -11,10 +11,10 @@ window.Ads = (() => {
         rewarded: 'ca-app-pub-3940256099942544/5224354917',
         banner: 'ca-app-pub-3940256099942544/6300978111',
       },
-      // 本番の広告ユニット(AdMob の Android アプリ「星座みつけ」)。届くまでは空にしておく(本番ビルドでは出さない)
+      // 本番の広告ユニット(AdMob の Android アプリ「星座みつけ」)。空の種類は本番ビルドでは出さない
       production: {
         interstitial: 'ca-app-pub-6411535997477460/8172123072',
-        rewarded: '',
+        rewarded: 'ca-app-pub-6411535997477460/5454314604',
         banner: 'ca-app-pub-6411535997477460/5482234767',
       },
     },
