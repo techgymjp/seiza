@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   const A = window.Astro;
+  const T = window.I18N;
+  const tr = T.t;
   const D2R = A.D2R;
 
   // ---------------------------------------------------------------
@@ -13,7 +15,7 @@
     hard: { label: 'むずかしい', magLimit: 6.0, showShape: false, showLines: false },
   };
   const MAX_ROUNDS = 5;
-  const DEFAULT_LOCATION = { lat: 35.681, lon: 139.767, label: '東京（仮）' };
+  const DEFAULT_LOCATION = { lat: 35.681, lon: 139.767 };
   const PRESETS = [
     { label: '札幌', lat: 43.062, lon: 141.354 },
     { label: '東京', lat: 35.681, lon: 139.767 },
@@ -208,8 +210,8 @@
   const state = {
     lat: DEFAULT_LOCATION.lat,
     lon: DEFAULT_LOCATION.lon,
-    locLabel: DEFAULT_LOCATION.label,
-    locStatus: '位置情報を取得しています…',
+    locKind: 'default', // default | current | custom | previous | preset:番号
+    locStatus: { key: 'st_locating' },
     timeOffset: 0, // 実時刻からのずれ (ms)。0 なら現在時刻
     view: { az: 180, alt: 40, fov: 90 },
     deviceHeading: null, // スマホのコンパスの方角
@@ -514,7 +516,7 @@
         ctx.fillStyle = 'rgba(255, 236, 190, 0.9)';
         ctx.textAlign = 'left';
         con.catIdx.forEach((i, k) => {
-          if (scrVis[i] && con.stars[k].mag < 2.6) ctx.fillText(con.stars[k].name, scrX[i] + 8, scrY[i] - 6);
+          if (scrVis[i] && con.stars[k].mag < 2.6) ctx.fillText(T.starName(con, k), scrX[i] + 8, scrY[i] - 6);
         });
       }
     }
@@ -539,7 +541,7 @@
       ctx.shadowColor = pl.color; ctx.shadowBlur = 10;
       ctx.beginPath(); ctx.arc(pt[0], pt[1], pl.size, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
-      drawLabel(pl.name, pt[0] + pl.size + 4, pt[1] + 4, '#ffd9a8');
+      drawLabel(T.planetName(pl.id), pt[0] + pl.size + 4, pt[1] + 4, '#ffd9a8');
     });
     // 太陽
     if (sky.sun.alt > -1 && project(sky.sun.v, pt)) {
@@ -552,7 +554,7 @@
       ctx.beginPath(); ctx.arc(pt[0], pt[1], rad * 3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fffbe6';
       ctx.beginPath(); ctx.arc(pt[0], pt[1], rad, 0, Math.PI * 2); ctx.fill();
-      drawLabel('太陽', pt[0] + rad + 4, pt[1] + 4, '#fff2b0');
+      drawLabel(tr('sun'), pt[0] + rad + 4, pt[1] + 4, '#fff2b0');
     }
     // 月 (満ち欠けつき)
     if (sky.moon.alt > -1 && project(sky.moon.v, pt)) {
@@ -578,7 +580,7 @@
       ctx.ellipse(0, 0, ex, rad, 0, Math.PI / 2, -Math.PI / 2, phase < 0.5);
       ctx.fill();
       ctx.restore();
-      drawLabel('月', pt[0] + rad + 4, pt[1] + 4, '#f4f1dc');
+      drawLabel(tr('moon'), pt[0] + rad + 4, pt[1] + 4, '#f4f1dc');
     }
   }
 
@@ -635,7 +637,7 @@
     ctx.restore();
 
     // 方角ラベル
-    const labels = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'];
+    const labels = T.dir8Labels();
     ctx.textAlign = 'center';
     labels.forEach((lb, k) => {
       const v = A.altAzToEnu(0, k * 45);
@@ -1004,27 +1006,36 @@
   // ---------------------------------------------------------------
   function requestLocation() {
     if (!navigator.geolocation) {
-      state.locStatus = 'この端末では位置情報が使えないため、東京の空を表示しています';
+      state.locStatus = { key: 'st_noGeo' };
       refreshTitle();
       return;
     }
-    state.locStatus = '位置情報を取得しています…';
+    state.locStatus = { key: 'st_locating' };
     refreshTitle();
     navigator.geolocation.getCurrentPosition((pos) => {
-      setLocation(pos.coords.latitude, pos.coords.longitude, '現在地');
-      state.locStatus = '現在地の空を表示しています';
+      setLocation(pos.coords.latitude, pos.coords.longitude, 'current');
+      state.locStatus = { key: 'st_current' };
       refreshTitle();
     }, () => {
-      state.locStatus = '位置情報を取得できなかったため、東京の空を表示しています（⚙で変更できます）';
+      state.locStatus = { key: 'st_failed' };
       refreshTitle();
     }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
   }
 
-  function setLocation(lat, lon, label) {
+  function setLocation(lat, lon, kind) {
     state.lat = Math.max(-89.9, Math.min(89.9, lat));
     state.lon = ((lon + 540) % 360) - 180;
-    state.locLabel = label;
-    writeSave({ loc: { lat: state.lat, lon: state.lon, label } });
+    state.locKind = kind;
+    writeSave({ loc: { lat: state.lat, lon: state.lon, kind } });
+  }
+
+  function locLabel() {
+    const k = state.locKind || 'default';
+    if (k.startsWith('preset:')) {
+      const i = +k.slice(7);
+      return PRESETS[i] ? T.presetLabel(i, PRESETS[i].label) : tr('loc_custom');
+    }
+    return tr('loc_' + k) || tr('loc_custom');
   }
 
   // ---------------------------------------------------------------
@@ -1040,7 +1051,7 @@
     computeSky();
     const vis = visibleConstellations();
     if (vis.length === 0) {
-      $('titleMsg').textContent = 'いまの時刻・場所では地平線の上に出ている星座がありません。⚙ で時刻を変えてみてください。';
+      $('titleMsg').textContent = tr('noVisibleStart');
       return;
     }
     state.rounds = shuffle(vis).slice(0, MAX_ROUNDS);
@@ -1071,14 +1082,21 @@
     state.screen = 'play';
     state.hintArrowUntil = 0;
     // 「おおぐま座（北斗七星）」はかっこの前で改行する
-    $('taskName').textContent = con.name.replace('（', '\n（');
-    $('taskName').classList.toggle('long', con.name.replace(/（.*）/, '').length > 5);
+    setTaskName(con);
     const diff = DIFFICULTY[state.difficulty];
     const thumb = $('thumb');
     thumb.hidden = !diff.showShape;
     // 星座イラストを背景に薄く重ねる
     if (diff.showShape) drawShape(thumb, con, 'sky', { lines: diff.showLines, figure: true, figureAlpha: 0.75, pad: 6 });
     updateTask();
+  }
+
+  function setTaskName(con) {
+    const name = T.conName(con);
+    // 「おおぐま座（北斗七星）」などはかっこの前で改行する
+    $('taskName').textContent = name.replace('（', '\n（').replace(' (', '\n(');
+    const main = name.replace(/[（(].*[）)]/, '').trim();
+    $('taskName').classList.toggle('long', T.lang === 'en' ? main.length > 9 : main.length > 5);
   }
 
   function elapsedSec() {
@@ -1150,24 +1168,24 @@
   function positionText(con) {
     const v = conCenterEnu(con, sky.lst);
     const aa = A.enuToAltAz(v);
-    return `${A.dirName(aa.az)}の空・高さ ${Math.round(aa.alt)}°`;
+    return tr('position', { dir: T.dir16(aa.az), alt: Math.round(aa.alt) });
   }
 
   function showSolvedCard(score) {
     const rd = state.round;
     const con = rd.con;
     state.screen = 'solved';
-    $('solvedTitle').textContent = rd.gaveUp ? 'こたえ' : 'みつけた！';
-    $('solvedName').textContent = con.name;
-    $('solvedMeta').textContent = `${con.season}の星座 ・ いま ${positionText(con)}`;
-    $('solvedDesc').textContent = con.desc;
-    const bright = con.stars.filter((s) => s.mag < 2.6).map((s) => s.name);
-    $('solvedStars').textContent = bright.length ? `明るい星: ${bright.join('、')}` : '';
+    $('solvedTitle').textContent = rd.gaveUp ? tr('answer') : tr('found');
+    $('solvedName').textContent = T.conName(con);
+    $('solvedMeta').textContent = tr('solvedMeta', { season: T.season(con.season), pos: positionText(con) });
+    $('solvedDesc').textContent = T.conDesc(con);
+    const bright = con.stars.map((st, k) => (st.mag < 2.6 ? T.starName(con, k) : null)).filter(Boolean);
+    $('solvedStars').textContent = bright.length ? tr('brightStars', { list: bright.join(tr('listSep')) }) : '';
     $('solvedScore').textContent = rd.gaveUp
-      ? '0 点'
-      : `${score} 点（${Math.round(elapsedSec())}秒・ミス${rd.misses}・ヒント${rd.hints}）`;
+      ? tr('zeroPoints')
+      : tr('scoreDetail', { n: score, sec: Math.round(elapsedSec()), miss: rd.misses, hint: rd.hints });
     drawShape($('solvedShape'), con, 'sky', { lineColor: 'rgba(255, 214, 120, 0.9)', figure: true, pad: 10 });
-    $('btnNext').textContent = state.roundIndex + 1 < state.rounds.length ? 'つぎの星座へ' : '結果を見る';
+    $('btnNext').textContent = state.roundIndex + 1 < state.rounds.length ? tr('nextCon') : tr('seeResult');
     showOverlay('solved');
   }
 
@@ -1188,13 +1206,13 @@
     const best = loadSave().best || 0;
     const isBest = state.totalScore > best;
     if (isBest) writeSave({ best: state.totalScore });
-    $('resultScore').textContent = `${state.totalScore} 点`;
-    $('resultBest').textContent = isBest ? '🎉 自己ベスト更新！' : `自己ベスト: ${best} 点`;
+    $('resultScore').textContent = tr('points', { n: state.totalScore });
+    $('resultBest').textContent = isBest ? tr('newBest') : tr('bestIs', { n: best });
     const list = $('resultList');
     list.innerHTML = '';
     state.history.forEach((h) => {
       const li = document.createElement('li');
-      li.innerHTML = `<span>${h.con.name}</span><span>${h.gaveUp ? 'ギブアップ' : h.score + '点'}</span>`;
+      li.innerHTML = `<span>${T.conName(h.con)}</span><span>${h.gaveUp ? tr('gaveUp') : tr('points', { n: h.score })}</span>`;
       list.appendChild(li);
     });
     showOverlay('result');
@@ -1241,14 +1259,17 @@
   function updateTask() {
     const rd = state.round;
     if (!rd) return;
-    $('taskProgress').textContent = `${rd.found.size} / ${rd.targetSet.size} 個`;
-    $('roundLabel').textContent = `${state.roundIndex + 1} / ${state.rounds.length} 問`;
-    $('scoreLabel').textContent = `${state.totalScore} 点`;
-    $('missLabel').textContent = rd.misses ? `ミス ${rd.misses}` : '';
+    $('taskProgress').textContent = tr('progress', { a: rd.found.size, b: rd.targetSet.size });
+    $('roundLabel').textContent = tr('round', { a: state.roundIndex + 1, b: state.rounds.length });
+    $('scoreLabel').textContent = tr('points', { n: state.totalScore });
+    $('missLabel').textContent = rd.misses ? tr('miss', { n: rd.misses }) : '';
   }
 
   function fmtTime(ms) {
     const d = new Date(ms);
+    if (T.lang === 'en') {
+      return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+    }
     const p = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
@@ -1264,7 +1285,7 @@
     document.querySelectorAll('#compassDial text').forEach((el) => {
       el.setAttribute('transform', `rotate(${az.toFixed(1)} ${el.getAttribute('x')} ${el.getAttribute('y')})`);
     });
-    $('compassLabel').textContent = `${A.dirName(az)} ${Math.round(az)}°`;
+    $('compassLabel').textContent = `${T.dir16(az)} ${Math.round(az)}°`;
   }
 
   let lastHud = 0;
@@ -1273,11 +1294,12 @@
     lastHud = now;
     const t = elapsedSec();
     $('timerLabel').textContent = state.round ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}` : '';
-    const latS = `${state.lat >= 0 ? '北緯' : '南緯'}${Math.abs(state.lat).toFixed(1)}°`;
-    const timeS = fmtTime(simNow()) + (state.timeOffset ? '（設定時刻）' : '');
-    $('infoLoc').textContent = `📍${state.locLabel}（${latS}）`;
+    const latAbs = Math.abs(state.lat).toFixed(1);
+    const latS = T.lang === 'en' ? `${latAbs}°${state.lat >= 0 ? 'N' : 'S'}` : `${state.lat >= 0 ? '北緯' : '南緯'}${latAbs}°`;
+    const timeS = fmtTime(simNow()) + (state.timeOffset ? tr('setTimeMark') : '');
+    $('infoLoc').textContent = T.lang === 'en' ? `📍${locLabel()} (${latS})` : `📍${locLabel()}（${latS}）`;
     $('infoTime').textContent = `🕘${timeS}`;
-    $('infoDir').textContent = `🧭${A.dirName(state.view.az)}・高さ${Math.round(state.view.alt)}°`;
+    $('infoDir').textContent = `🧭${tr('viewDir', { dir: T.dir16(state.view.az), alt: Math.round(state.view.alt) })}`;
   }
 
   // ---------------------------------------------------------------
@@ -1290,28 +1312,28 @@
   }
 
   function refreshTitle() {
-    $('locStatus').textContent = state.locStatus;
+    $('locStatus').textContent = tr(state.locStatus.key, { place: locLabel() });
     computeSky();
     const vis = visibleConstellations();
     const el = $('visibleList');
     el.innerHTML = '';
     if (vis.length === 0) {
-      el.textContent = 'いまは地平線の上に出ている星座がありません';
+      el.textContent = tr('noVisible');
     } else {
       vis.forEach((c) => {
         const s = document.createElement('span');
         s.className = 'chip';
-        s.textContent = c.name;
+        s.textContent = T.conName(c);
         el.appendChild(s);
       });
     }
     const objs = [];
-    if (sky.moon.alt > 0) objs.push('月');
-    sky.planets.forEach((p) => { if (p.alt > 0) objs.push(p.name); });
-    $('visiblePlanets').textContent = objs.length ? `月・惑星: ${objs.join('、')}` : '';
+    if (sky.moon.alt > 0) objs.push(tr('moon'));
+    sky.planets.forEach((p) => { if (p.alt > 0) objs.push(T.planetName(p.id)); });
+    $('visiblePlanets').textContent = objs.length ? tr('moonPlanets', { list: objs.join(tr('listSep')) }) : '';
     $('titleMsg').textContent = '';
     document.querySelectorAll('[data-diff]').forEach((b) => b.classList.toggle('active', b.dataset.diff === state.difficulty));
-    $('bestLabel').textContent = loadSave().best ? `自己ベスト ${loadSave().best} 点` : '';
+    $('bestLabel').textContent = loadSave().best ? tr('best', { n: loadSave().best }) : '';
   }
 
   function openSettings() {
@@ -1329,9 +1351,9 @@
     if (apply) {
       const lat = parseFloat($('setLat').value), lon = parseFloat($('setLon').value);
       if (!isNaN(lat) && !isNaN(lon) && (Math.abs(lat - state.lat) > 1e-4 || Math.abs(lon - state.lon) > 1e-4)) {
-        const preset = PRESETS.find((pp) => Math.abs(pp.lat - lat) < 1e-3 && Math.abs(pp.lon - lon) < 1e-3);
-        setLocation(lat, lon, preset ? preset.label : '指定した場所');
-        state.locStatus = `${state.locLabel}の空を表示しています`;
+        const pi = PRESETS.findIndex((pp) => Math.abs(pp.lat - lat) < 1e-3 && Math.abs(pp.lon - lon) < 1e-3);
+        setLocation(lat, lon, pi >= 0 ? 'preset:' + pi : 'custom');
+        state.locStatus = { key: 'st_place', place: true };
       }
       const tv = $('setTime').value;
       if (tv) {
@@ -1363,11 +1385,12 @@
       drawShape(cv, con, 'chart', found ? { lineColor: 'rgba(255,214,120,0.85)', figure: true, pad: 8 } : { lines: false, starColor: 'rgba(255,255,255,0.35)' });
       const name = document.createElement('div');
       name.className = 'zname';
-      name.textContent = found ? con.name : '？？？';
+      name.textContent = found ? T.conName(con) : tr('unknown');
       const sub = document.createElement('div');
       sub.className = 'zsub';
       const nowAlt = conMinAlt(con, lst);
-      sub.textContent = maxAlt <= 0 ? 'この場所からは見えない' : nowAlt > 5 ? `いま見える（${con.season}）` : `${con.season}の星座`;
+      const season = T.season(con.season);
+      sub.textContent = maxAlt <= 0 ? tr('notVisibleHere') : nowAlt > 5 ? tr('visibleNow', { season }) : tr('seasonCon', { season });
       card.append(cv, name, sub);
       grid.appendChild(card);
     });
@@ -1445,14 +1468,14 @@
   bind('btnSettingsCancel', () => closeSettings(false));
   bind('btnGeo', () => {
     if (!navigator.geolocation) return;
-    $('geoStatus').textContent = '取得中…';
+    $('geoStatus').textContent = tr('geo_getting');
     navigator.geolocation.getCurrentPosition((pos) => {
       $('setLat').value = pos.coords.latitude.toFixed(3);
       $('setLon').value = pos.coords.longitude.toFixed(3);
-      setLocation(pos.coords.latitude, pos.coords.longitude, '現在地');
-      state.locStatus = '現在地の空を表示しています';
-      $('geoStatus').textContent = '現在地を取得しました';
-    }, () => { $('geoStatus').textContent = '取得できませんでした'; }, { timeout: 10000 });
+      setLocation(pos.coords.latitude, pos.coords.longitude, 'current');
+      state.locStatus = { key: 'st_current' };
+      $('geoStatus').textContent = tr('geo_ok');
+    }, () => { $('geoStatus').textContent = tr('geo_fail'); }, { timeout: 10000 });
   });
   bind('btnNow', () => {
     state.timeOffset = 0;
@@ -1476,7 +1499,7 @@
   function applyBgm() {
     $('btnBgm').classList.toggle('active', state.bgm);
     $('btnBgm').classList.toggle('off', !state.bgm);
-    $('btnBgm').title = state.bgm ? 'BGMをとめる' : 'BGMをながす';
+    $('btnBgm').title = state.bgm ? tr('t_bgmOff') : tr('t_bgmOn');
     if (!window.BGM) return;
     if (state.bgm && audioUnlocked) window.BGM.start();
     else window.BGM.stop();
@@ -1498,10 +1521,28 @@
   applyBgm();
 
   const presetSel = $('setPreset');
-  PRESETS.forEach((pp, k) => {
-    const o = document.createElement('option');
-    o.value = k; o.textContent = pp.label;
-    presetSel.appendChild(o);
+  function buildPresets() {
+    presetSel.querySelectorAll('option[value]:not([value=""])').forEach((o) => o.remove());
+    PRESETS.forEach((pp, k) => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = T.presetLabel(k, pp.label);
+      presetSel.appendChild(o);
+    });
+  }
+  buildPresets();
+
+  // 言語の切りかえ
+  function applyLanguage() {
+    T.applyStatic();
+    buildPresets();
+    applyBgm();
+    refreshTitle();
+    if (state.round) { setTaskName(state.round.con); updateTask(); }
+    lastCompassAz = null;
+  }
+  bind('btnLang', () => {
+    T.setLang(T.lang === 'ja' ? 'en' : 'ja');
+    applyLanguage();
   });
   presetSel.addEventListener('change', () => {
     const pp = PRESETS[presetSel.value];
@@ -1513,8 +1554,9 @@
   // 起動
   // ---------------------------------------------------------------
   if (saved.loc) {
-    state.lat = saved.loc.lat; state.lon = saved.loc.lon; state.locLabel = saved.loc.label || '前回の場所';
+    state.lat = saved.loc.lat; state.lon = saved.loc.lon; state.locKind = saved.loc.kind || 'previous';
   }
+  T.applyStatic();
   setupOrientation();
   requestLocation();
   computeSky();

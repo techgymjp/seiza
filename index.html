@@ -8,15 +8,15 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <canvas id="sky" aria-label="星空"></canvas>
+  <canvas id="sky" aria-label="星空" data-i18n-aria="t_sky"></canvas>
 
   <!-- プレイ中の表示 -->
   <header id="hud">
     <div id="task">
-      <canvas id="thumb" width="260" height="208" aria-label="星座の形"></canvas>
+      <canvas id="thumb" width="260" height="208" aria-label="星座の形" data-i18n-aria="t_shape"></canvas>
       <div class="task-text">
         <div id="taskName"></div>
-        <div class="task-title">をさがして</div>
+        <div class="task-title" data-i18n="findIt">をさがして</div>
         <div class="task-sub"><span id="taskProgress"></span> <span id="missLabel"></span></div>
       </div>
     </div>
@@ -28,7 +28,7 @@
   </header>
 
   <!-- 右上のコンパス (いま見ている方角) -->
-  <div id="compass" aria-label="見ている方角">
+  <div id="compass" aria-label="見ている方角" data-i18n-aria="t_compass">
     <svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true">
       <circle cx="50" cy="50" r="47" class="c-ring"/>
       <g id="compassDial">
@@ -56,43 +56,44 @@
       <span id="infoDir"></span>
     </div>
     <div id="controls">
-      <button id="btnZoomOut" class="ctl" title="広く見る">－</button>
-      <button id="btnZoomIn" class="ctl" title="大きく見る">＋</button>
-      <button id="btnHint" class="ctl play-only" title="ヒント">💡ヒント</button>
-      <button id="btnGiveUp" class="ctl play-only" title="こたえを見る">🏳️</button>
-      <button id="btnSettings" class="ctl" title="場所と時刻">⚙️</button>
+      <button id="btnZoomOut" class="ctl" title="広く見る" data-i18n-title="t_zoomOut">－</button>
+      <button id="btnZoomIn" class="ctl" title="大きく見る" data-i18n-title="t_zoomIn">＋</button>
+      <button id="btnHint" class="ctl play-only" title="ヒント" data-i18n-title="t_hint" data-i18n="hint">💡ヒント</button>
+      <button id="btnGiveUp" class="ctl play-only" title="こたえを見る" data-i18n-title="t_giveUp">🏳️</button>
+      <button id="btnSettings" class="ctl" title="場所と時刻" data-i18n-title="t_settings">⚙️</button>
       <button id="btnBgm" class="ctl" title="BGM">🎵</button>
-      <button id="btnMute" class="ctl" title="効果音">🔊</button>
-      <button id="btnQuit" class="ctl play-only" title="タイトルへ">✕</button>
+      <button id="btnMute" class="ctl" title="効果音" data-i18n-title="t_mute">🔊</button>
+      <button id="btnQuit" class="ctl play-only" title="タイトルへ" data-i18n-title="t_quit">✕</button>
     </div>
   </footer>
 
   <!-- タイトル -->
   <section id="title" class="overlay">
     <div class="card">
-      <h1>星座みつけ</h1>
-      <p class="lead">いま、あなたのいる場所の夜空から<br>お題の星座をさがして、星をなぞろう！</p>
+      <button id="btnLang" class="lang" data-i18n="langButton">🌐 English</button>
+      <h1 data-i18n="appTitle">星座みつけ</h1>
+      <p class="lead" data-i18n-html="lead">いま、あなたのいる場所の夜空から<br>お題の星座をさがして、星をなぞろう！</p>
       <p id="locStatus" class="small"></p>
       <div class="visible">
-        <div class="small">いま地平線の上に出ている星座</div>
+        <div class="small" data-i18n="visibleHead">いま地平線の上に出ている星座</div>
         <div id="visibleList"></div>
         <div id="visiblePlanets" class="small"></div>
       </div>
       <div class="diff">
-        <button data-diff="easy">かんたん</button>
-        <button data-diff="normal">ふつう</button>
-        <button data-diff="hard">むずかしい</button>
+        <button data-diff="easy" data-i18n="diff_easy">かんたん</button>
+        <button data-diff="normal" data-i18n="diff_normal">ふつう</button>
+        <button data-diff="hard" data-i18n="diff_hard">むずかしい</button>
       </div>
-      <button id="btnStart" class="primary">スタート</button>
+      <button id="btnStart" class="primary" data-i18n="start">スタート</button>
       <p id="titleMsg" class="warn"></p>
       <div class="row">
-        <button id="btnZukan">📖 ずかん</button>
-        <button id="btnTitleSettings">⚙️ 場所・時刻</button>
+        <button id="btnZukan" data-i18n="zukan">📖 ずかん</button>
+        <button id="btnTitleSettings" data-i18n="placeTime">⚙️ 場所・時刻</button>
       </div>
       <p id="bestLabel" class="small"></p>
       <details class="howto">
-        <summary>あそびかた</summary>
-        <ul>
+        <summary data-i18n="howtoTitle">あそびかた</summary>
+        <ul id="howtoList">
           <li>「◯◯座 をさがして」とお題が出ます。左上の図がその星座の形です。</li>
           <li>夜空からその星座を見つけたら、星を指（マウス）でなぞってみよう。なぞった星と星が線で結ばれます。</li>
           <li>お題の星座の星を<strong>全部</strong>なぞったら正解！星座絵が浮かび上がります。</li>
@@ -110,7 +111,7 @@
   <!-- 正解 -->
   <section id="solved" class="overlay bottom-sheet" hidden>
     <div class="card">
-      <div id="solvedTitle" class="badge">みつけた！</div>
+      <div id="solvedTitle" class="badge" data-i18n="found">みつけた！</div>
       <div class="solved-head">
         <canvas id="solvedShape" width="280" height="220"></canvas>
         <div>
@@ -121,40 +122,40 @@
       <p id="solvedDesc"></p>
       <p id="solvedStars" class="small"></p>
       <p id="solvedScore" class="score"></p>
-      <button id="btnNext" class="primary">つぎの星座へ</button>
+      <button id="btnNext" class="primary" data-i18n="nextCon">つぎの星座へ</button>
     </div>
   </section>
 
   <!-- 結果 -->
   <section id="result" class="overlay" hidden>
     <div class="card">
-      <h2>けっか</h2>
+      <h2 data-i18n="result">けっか</h2>
       <div id="resultScore" class="big"></div>
       <div id="resultBest" class="small"></div>
       <ul id="resultList"></ul>
-      <button id="btnAgain" class="primary">もういちど</button>
-      <button id="btnToTitle">タイトルへ</button>
+      <button id="btnAgain" class="primary" data-i18n="again">もういちど</button>
+      <button id="btnToTitle" data-i18n="toTitle">タイトルへ</button>
     </div>
   </section>
 
   <!-- 設定 -->
   <section id="settings" class="overlay" hidden>
     <div class="card">
-      <h2>場所と時刻</h2>
-      <label>場所をえらぶ
-        <select id="setPreset"><option value="">— えらんでください —</option></select>
+      <h2 data-i18n="settingsTitle">場所と時刻</h2>
+      <label><span data-i18n="choosePlace">場所をえらぶ</span>
+        <select id="setPreset"><option value="" data-i18n="choosePlaceholder">— えらんでください —</option></select>
       </label>
       <div class="row2">
-        <label>緯度<input id="setLat" type="number" step="0.001" min="-90" max="90"></label>
-        <label>経度<input id="setLon" type="number" step="0.001" min="-180" max="180"></label>
+        <label><span data-i18n="lat">緯度</span><input id="setLat" type="number" step="0.001" min="-90" max="90"></label>
+        <label><span data-i18n="lon">経度</span><input id="setLon" type="number" step="0.001" min="-180" max="180"></label>
       </div>
-      <button id="btnGeo">📍 現在地を取得</button>
+      <button id="btnGeo" data-i18n="getLocation">📍 現在地を取得</button>
       <div id="geoStatus" class="small"></div>
-      <label>日時<input id="setTime" type="datetime-local"></label>
-      <button id="btnNow">🕘 いまの時刻にもどす</button>
+      <label><span data-i18n="dateTime">日時</span><input id="setTime" type="datetime-local"></label>
+      <button id="btnNow" data-i18n="resetTime">🕘 いまの時刻にもどす</button>
       <div class="row">
-        <button id="btnSettingsCancel">キャンセル</button>
-        <button id="btnSettingsOk" class="primary">OK</button>
+        <button id="btnSettingsCancel" data-i18n="cancel">キャンセル</button>
+        <button id="btnSettingsOk" class="primary" data-i18n="ok">OK</button>
       </div>
     </div>
   </section>
@@ -162,12 +163,13 @@
   <!-- ずかん -->
   <section id="zukan" class="overlay" hidden>
     <div class="card wide">
-      <h2>星座ずかん <span id="zukanCount" class="small"></span></h2>
+      <h2><span data-i18n="zukanTitle">星座ずかん</span> <span id="zukanCount" class="small"></span></h2>
       <div id="zukanGrid"></div>
-      <button id="btnZukanClose" class="primary">とじる</button>
+      <button id="btnZukanClose" class="primary" data-i18n="close">とじる</button>
     </div>
   </section>
 
+  <script src="js/i18n.js"></script>
   <script src="js/stars.js"></script>
   <script src="js/constellations.js"></script>
   <script src="js/figures.js"></script>
