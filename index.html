@@ -93,6 +93,14 @@
       </div>
       <p id="bestLabel" class="small"></p>
       <button id="btnHowto" data-i18n="howtoButton">❓ あそびかた</button>
+      <!-- web-only -->
+      <!-- Android アプリ版 (Google Play) へのリンク。アプリのビルドでは scripts/build-web.js が取り除く -->
+      <a id="storeLink" class="store-link" href="https://play.google.com/store/apps/details?id=jp.techgym.seiza" target="_blank" rel="noopener">
+        <span class="gp" aria-hidden="true">▶</span>
+        <span><small data-i18n="storeGet">Android アプリ版</small><b data-i18n="storeName">Google Play で入手</b></span>
+      </a>
+      <p class="store-tm" data-i18n="storeTm">Google Play および Google Play ロゴは Google LLC の商標です。</p>
+      <!-- /web-only -->
       <!-- アプリ版だけ: バージョン・プライバシーポリシー・広告の設定 (EU など) -->
       <div id="legal" class="small" hidden>
         <span id="buildInfo"></span>

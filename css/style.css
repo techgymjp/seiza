@@ -358,3 +358,31 @@ body.banner-space .overlay { padding-bottom: 70px; }
 /* バージョン・プライバシーポリシー */
 #legal a { color: var(--accent); }
 #legal[hidden], #adPrivacy[hidden] { display: none; }
+
+/* web-only:start */
+/* Android アプリ版 (Google Play) へのリンク (Web 版のタイトル画面だけ) */
+.store-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 14px;
+  border-radius: 12px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+  text-decoration: none;
+  text-align: left;
+  line-height: 1.15;
+}
+.store-link:hover { border-color: #fff; }
+.store-link .gp {
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #34a853, #fbbc04 45%, #ea4335 70%, #4285f4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.store-link small { display: block; font-size: 0.7rem; color: #ddd; }
+.store-link b { font-size: 1rem; }
+.store-tm { margin: 4px 0 0; font-size: 0.65rem; color: var(--muted); }
+/* web-only:end */

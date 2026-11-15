@@ -20,6 +20,11 @@
       best: '自己ベスト {n} 点',
       howtoPc: 'パソコンでは、なにもないところをドラッグすると空を見回せます。ホイールで拡大縮小。',
       howtoButton: '❓ あそびかた',
+      // web-only:start
+      storeGet: 'Android アプリ版',
+      storeName: 'Google Play で入手',
+      storeTm: 'Google Play および Google Play ロゴは Google LLC の商標です。',
+      // web-only:end
       pauseTitle: 'ポーズ',
       resume: 'つづける',
       t_pause: 'ポーズ',
@@ -123,6 +128,11 @@
       best: 'Best score {n}',
       howtoPc: 'On a computer, drag an empty part of the sky to look around. Use the mouse wheel to zoom.',
       howtoButton: '❓ How to play',
+      // web-only:start
+      storeGet: 'Android app',
+      storeName: 'Get it on Google Play',
+      storeTm: 'Google Play and the Google Play logo are trademarks of Google LLC.',
+      // web-only:end
       pauseTitle: 'Paused',
       resume: 'Resume',
       t_pause: 'Pause',
