@@ -35,6 +35,10 @@
 
     <!-- Permissions -->
 
+    <!-- 縦画面固定 (screenOrientation) にしているが、縦画面は必須ではないと明示する。
+         書かないと Google Play が「縦画面が必須」とみなし、Chromebook など一部の端末で表示されなくなる -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- いまいる場所の夜空を計算するために位置情報を使う（端末の中だけで使い、送信しない）。
          WebView の位置情報は「おおよそ」と「正確」の両方を求めるので両方書く -->
